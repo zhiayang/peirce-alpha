@@ -47,7 +47,7 @@ namespace lg
 		else if(lvl == 2)   { lvlcolour = ERR;  str = "[err]"; }
 		else if(lvl == 3)   { lvlcolour = FTL;  str = "[ftl]"; }
 
-		auto timestamp = zpr::sprint("{} {}|{}", getCurrentTimeString(), "\x1b[1m\x1b[33m", RESET);
+		auto timestamp = zpr::sprint("{} {}|{}", getCurrentTimeString(), "\x1b[1m\x1b[37m", RESET);
 		auto loglevel  = zpr::sprint("{}{}{}", lvlcolour, str, RESET);
 		auto subsystem = zpr::sprint("{}{}{}", SUBSYS, sys, RESET);
 

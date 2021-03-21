@@ -45,7 +45,7 @@ OUTPUT_BIN      := build/palpha
 all: build
 
 test: build
-	@$(OUTPUT_BIN)
+	@cd build && ./$(notdir $(OUTPUT_BIN))
 
 build: $(OUTPUT_BIN)
 

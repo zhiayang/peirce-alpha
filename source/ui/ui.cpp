@@ -99,8 +99,8 @@ namespace ui
 			config.OversampleH = 4;
 		}
 
-		io.Fonts->AddFontFromFileTTF("build/assets/menlo.ttf", fontsize, &config, 0);
-		uiState.smallFont = io.Fonts->AddFontFromFileTTF("build/assets/menlo.ttf", 12, &config, 0);
+		io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", fontsize, &config, 0);
+		uiState.smallFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", 12, &config, 0);
 
 		io.Fonts->Build();
 
@@ -115,6 +115,12 @@ namespace ui
 
 			style.Colors[ImGuiCol_Text] = theme.foreground;
 			style.Colors[ImGuiCol_WindowBg] = theme.background;
+
+			style.Colors[ImGuiCol_ButtonActive] = theme.buttonClickedBg;
+			style.Colors[ImGuiCol_ButtonHovered] = theme.buttonHoverBg;
+
+			// button backgrounds don't exist
+			style.Colors[ImGuiCol_Button] = util::colour::fromHexRGBA(0);
 
 			style.WindowBorderSize = 0;
 		}
@@ -136,25 +142,28 @@ namespace ui
 		SDL_Quit();
 	}
 
-	bool poll()
+	int poll()
 	{
+		int num = 0;
+
 		SDL_Event event = { };
 		while(SDL_PollEvent(&event))
 		{
+			num++;
 			ImGui_ImplSDL2_ProcessEvent(&event);
 
 			if(event.type == SDL_QUIT)
 			{
-				return false;
+				return -1;
 			}
 			else if(event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
 				event.window.windowID == SDL_GetWindowID(uiState.sdlWindow))
 			{
-				return false;
+				return -1;
 			}
 		}
 
-		return true;
+		return num;
 	}
 
 	static double timestamp()
@@ -176,12 +185,15 @@ namespace ui
 	{
 		auto& io = ImGui::GetIO();
 
+		// FPS is not very useful, since we only refresh the screen when events come in.
+	#if 0
 		ImGui::GetForegroundDrawList()->AddText(
 			uiState.smallFont, 12,
 			lx::vec2(geometry::get().display.size.x - 115, 5),
 			uiState.theme.foreground.u32(),
 			zpr::sprint("{.1f} fps / {.1f} ms", uiState.fps, uiState.frametime * 1000).c_str()
 		);
+	#endif
 
 		ImGui::Render();
 		glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);

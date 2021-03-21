@@ -21,8 +21,8 @@ namespace ui
 	void setup(double uiscale, double fontsize, Theme theme);
 	void stop();
 
-	// returns false if we should quit.
-	bool poll();
+	// returns < 0 if we should quit, or else it returns the number of events processed.
+	int poll();
 
 	void startFrame();
 	void endFrame();
@@ -33,6 +33,7 @@ namespace ui
 	// takes in the ImGuiMouseCursor_ enum.
 	void setCursor(int cursor);
 
+	int getNextId();
 	void interact(lx::vec2 origin, alpha::Graph* graph);
 
 	void autoLayout(alpha::Graph* graph, double width);
@@ -49,6 +50,19 @@ namespace ui
 
 		util::colour sidebarBg;
 		util::colour exprbarBg;
+
+		util::colour buttonHoverBg;
+		util::colour buttonClickedBg;
+
+		util::colour boxSelection;
+		util::colour boxHover;
+
+		util::colour boxDetached;
+		util::colour boxDropTarget;
+
+		struct {
+			void* submit;
+		} textures;
 	};
 
 	namespace geometry
@@ -81,20 +95,22 @@ namespace ui
 
 	namespace alpha
 	{
-		constexpr uint32_t FLAG_SELECTED        = 0x1;  // whether the thing is selected
-		constexpr uint32_t FLAG_SHOVED          = 0x2;  // whether the thing was already shoved in the current frame
-		constexpr uint32_t FLAG_ROOT            = 0x4;  // whether the box is the root node
-		constexpr uint32_t FLAG_DETACHED        = 0x8;  // whether the thing is 'detached' -- is not constrained to its box
-		constexpr uint32_t FLAG_DROP_TARGET     = 0x10; // the box is the drop-target of the detached item
-		constexpr uint32_t FLAG_GRAPH_MODIFIED  = 0x20; // the graph was modified graphically
+		constexpr uint32_t FLAG_SELECTED            = 0x1;  // whether the thing is selected
+		constexpr uint32_t FLAG_SHOVED              = 0x2;  // whether the thing was already shoved in the current frame
+		constexpr uint32_t FLAG_ROOT                = 0x4;  // whether the box is the root node
+		constexpr uint32_t FLAG_DETACHED            = 0x8;  // whether the thing is 'detached' -- is not constrained to its box
+		constexpr uint32_t FLAG_DROP_TARGET         = 0x10; // the box is the drop-target of the detached item
+		constexpr uint32_t FLAG_GRAPH_MODIFIED      = 0x20; // the graph was modified graphically
+		constexpr uint32_t FLAG_FORCE_AUTO_LAYOUT   = 0x40; // force an autolayout of the graph on the next update
+		constexpr uint32_t FLAG_MOUSE_HOVER         = 0x80; // the mouse is hovering over it
 
 		struct Item
 		{
 			bool isBox = false;
 
 			// unions are more trouble than they're worth.
-			std::vector<Item*> box;
-			std::string var;
+			std::vector<Item*> subs;
+			std::string name;
 
 
 			// these are all set automatically, don't modify them manually
@@ -111,11 +127,19 @@ namespace ui
 			uint32_t flags = 0;
 
 			ast::Expr* expr() const;
+			Item* clone() const;
 			~Item();
 
-			Item() = default;
-			Item(const Item&) = delete;
 			Item& operator= (const Item&) = delete;
+
+			static Item* var(zbuf::str_view name);
+			static Item* box(std::vector<Item*> items);
+
+		private:
+			Item();
+			Item(const Item&) = default;
+
+			friend struct Graph;
 		};
 
 		// the top-level has special meaning (there is no box around it), so it
@@ -127,6 +151,9 @@ namespace ui
 			Item box;
 
 			ast::Expr* expr() const;
+			void setAst(ast::Expr* expr);
+
+			Graph(std::vector<Item*> items);
 
 			Graph(const Graph&) = delete;
 			Graph& operator= (const Graph&) = delete;

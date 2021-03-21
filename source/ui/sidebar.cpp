@@ -3,13 +3,15 @@
 // Licensed under the Apache License Version 2.0.
 
 #include "ui.h"
+#include "ast.h"
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;
+using namespace ui::alpha;
 
 namespace ui
 {
-	void draw_sidebar(alpha::Graph* graph)
+	void draw_sidebar(Graph* graph)
 	{
 		(void) graph;
 
@@ -23,6 +25,11 @@ namespace ui
 		imgui::SetNextWindowSize(geom.sidebar.size + EXTRA_PADDING);
 
 		imgui::PushStyleColor(ImGuiCol_WindowBg, theme.sidebarBg);
+		imgui::PushStyleColor(ImGuiCol_FrameBg, theme.sidebarBg);
+
+		imgui::PushStyleColor(ImGuiCol_ButtonActive, util::colour::blue());
+		imgui::PushStyleColor(ImGuiCol_ButtonHovered, util::colour::red());
+		imgui::PushStyleColor(ImGuiCol_Button, util::colour::fromHexRGB(0xe6e6e6));
 
 		imgui::Begin("__sidebar", nullptr,
 			ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
@@ -40,6 +47,7 @@ namespace ui
 		imgui::Text("asdf 9");
 		imgui::Text("asdf 10");
 
+
 		// since window borders are off, we draw the separator manually.
 		{
 			imgui::GetForegroundDrawList()->AddLine(
@@ -50,6 +58,6 @@ namespace ui
 		}
 
 		imgui::End();
-		imgui::PopStyleColor();
+		imgui::PopStyleColor(5);
 	}
 }

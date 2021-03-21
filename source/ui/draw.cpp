@@ -17,25 +17,24 @@ namespace ui
 	{
 		using namespace alpha;
 
-		return Graph {
-			.box = Item { .isBox = true, .var = "__root", .box = {
-				new Item { .isBox = false, .var = "A" },
-				new Item { .isBox = true, .var = "box_Bs", .box = {
-					new Item { .isBox = false, .var = "B" },
-					new Item { .isBox = false, .var = "B" },
-					new Item { .isBox = false, .var = "B" },
-					new Item { .isBox = false, .var = "B" },
-					new Item { .isBox = true, .var = "box_C+X", .box = {
-						new Item { .isBox = false, .var = "C" },
-						new Item { .isBox = true, .var = "box_X1", .box = {
-							new Item { .isBox = true, .var = "box_X2", .box = {
-								new Item { .isBox = false, .var = "X" }
-							} }
-						} }
-					} }
-				} }
-			} }
-		};
+		return Graph({ Item::box({
+				Item::var("A"),
+				Item::box({
+					Item::var("B"),
+					Item::var("B"),
+					Item::var("B"),
+					Item::var("B"),
+					Item::box({
+						Item::var("C"),
+						Item::box({
+							Item::box({
+								Item::var("X")
+							})
+						})
+					})
+				})
+			})
+		});
 	}
 
 	void update()
@@ -52,8 +51,8 @@ namespace ui
 	{
 		static auto g = make();
 
-		draw_graph(&g);
 		draw_sidebar(&g);
 		draw_exprbar(&g);
+		draw_graph(&g);
 	}
 }

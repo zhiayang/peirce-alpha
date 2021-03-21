@@ -6,8 +6,11 @@
 *.cpp.d
 *.c.d
 *.log
-build
-secrets
+
+!build/
+
+build/*
+!build/assets/
 
 *.gch
 *.pch

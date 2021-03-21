@@ -2,6 +2,9 @@
 // Copyright (c) 2021, zhiayang
 // Licensed under the Apache License Version 2.0.
 
+#include <deque>
+#include <SDL2/SDL.h>
+
 #include "ui.h"
 #include "imgui/imgui.h"
 
@@ -17,6 +20,15 @@ namespace ui
 	static void handle_drag(Graph* graph);
 	static void handle_reattach(Graph* graph);
 	static void erase_from_parent(Item* item);
+	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph);
+
+	static void handle_undo(Graph* graph);
+	static void handle_redo(Graph* graph);
+
+	static bool is_char_pressed(char key);
+	static bool is_key_pressed(uint32_t scancode);
+
+	static lx::vec2 compute_abs_pos(Item* item);
 
 
 	template <typename Cb>
@@ -24,33 +36,57 @@ namespace ui
 	{
 		if(item->isBox)
 		{
-			for(auto i : item->box)
+			for(auto i : item->subs)
 				for_each_item(i, static_cast<Cb&&>(cb));
 		}
 
 		cb(item);
 	}
 
-	template <typename Cb>
-	static void for_each_item(Graph* graph, Cb&& cb) { for_each_item(&graph->box, static_cast<Cb&&>(cb)); }
+	constexpr int ACTION_DELETE     = 1;
+	constexpr int ACTION_CUT        = 2;
+	constexpr int ACTION_PASTE      = 3;
+	constexpr int ACTION_REPARENT   = 4;
+	constexpr size_t MAX_ACTIONS    = 69;
+
+	struct Action
+	{
+		int type = 0;
+
+		// the thing that was either deleted, cut, or pasted
+		Item* item = 0;
+
+		// for reparenting actions
+		Item* oldParent = 0;
+		lx::vec2 oldPos = {};
+	};
 
 	static struct {
 		Item* selected = 0;
 		Item* dropTarget = 0;
 
 		int resizingEdge = 0;   // 1 = north, 2 = northeast, 3 = east, etc.
+
+		Item* clipboard = 0;
+
+		// 0 = past-the-end; 1 = last action, etc. for each undo index++, and
+		// for each redo index--.
+		size_t actionIndex = 0;
+		std::deque<Action> actions;
 	} state;
+
 
 	void interact(lx::vec2 origin, Graph* graph)
 	{
+		auto mouse = imgui::GetMousePos() - origin;
+
 		// reset this flag.
 		graph->flags &= ~FLAG_GRAPH_MODIFIED;
 
-		auto mouse = imgui::GetMousePos() - origin;
 		if(imgui::IsMouseClicked(ImGuiMouseButton_Left))
 		{
 			// deselect everything
-			for_each_item(graph, [](auto item) { item->flags &= ~FLAG_SELECTED; });
+			for_each_item(&graph->box, [](auto item) { item->flags &= ~FLAG_SELECTED; });
 
 			if(auto hit = hit_test(mouse, &graph->box, /* only_boxes: */ false);
 				hit != nullptr && !(hit->flags & FLAG_ROOT))
@@ -64,21 +100,16 @@ namespace ui
 			}
 		}
 
-		if(state.selected != nullptr && (imgui::IsKeyPressed(imgui::GetKeyIndex(ImGuiKey_Backspace))
-			|| imgui::IsKeyPressed(imgui::GetKeyIndex(ImGuiKey_Delete))))
+		// only hover things if the mouse is up.
+		if(!imgui::IsMouseDown(ImGuiMouseButton_Left))
 		{
-			// first, remove it from its parent
-			erase_from_parent(state.selected);
-
-			// then delete it
-			delete state.selected;
-
-			// unselect it.
-			state.selected = nullptr;
-
-			graph->flags |= FLAG_GRAPH_MODIFIED;
+			// unhover everything
+			for_each_item(&graph->box, [](auto item) { item->flags &= ~FLAG_MOUSE_HOVER; });
+			if(auto hit = hit_test(mouse, &graph->box, /* only_boxes: */ false); hit != nullptr && !(hit->flags & FLAG_ROOT))
+				hit->flags |= FLAG_MOUSE_HOVER;
 		}
 
+		handle_shortcuts(mouse, graph);
 
 		// note: handle selected things first, so that if something is deleted in this frame,
 		// the cursor doesn't lag for one frame.
@@ -142,9 +173,101 @@ namespace ui
 				ui::setCursor(ImGuiMouseCursor_Arrow);
 		}
 
-
 		if(imgui::IsMouseDragging(ImGuiMouseButton_Left))
 			handle_drag(graph);
+
+
+		// prune the actions;
+		while(state.actions.size() > MAX_ACTIONS)
+			state.actions.pop_front();
+	}
+
+
+
+
+
+	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
+	{
+		if(state.selected != nullptr && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
+		{
+			state.actions.push_back(Action {
+				.type   = ACTION_DELETE,
+				.item   = state.selected
+			});
+
+			// first, remove it from its parent
+			erase_from_parent(state.selected);
+
+			// unselect it.
+			state.selected->flags &= ~FLAG_SELECTED;
+			state.selected = nullptr;
+
+			graph->flags |= FLAG_GRAPH_MODIFIED;
+		}
+		else if(state.selected != nullptr && (is_char_pressed('x') || is_char_pressed('c'))
+			&& (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
+		{
+			state.clipboard = state.selected;
+			state.selected->flags &= ~FLAG_SELECTED;
+
+			if(is_char_pressed('x'))
+			{
+				state.actions.push_back(Action {
+					.type = ACTION_CUT,
+					.item = state.selected
+				});
+
+				erase_from_parent(state.selected);
+				state.selected = nullptr;
+			}
+
+			graph->flags |= FLAG_GRAPH_MODIFIED;
+		}
+		else if(is_char_pressed('v') && (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
+		{
+			auto paste = state.clipboard->clone();
+
+			// if there's something selected (and it's a box), paste it inside
+			if(state.selected != nullptr && state.selected->isBox)
+			{
+				state.selected->subs.push_back(paste);
+
+				// if the parent changed, then move it to a sensible location (ie. [0, 0])
+				if(paste->parent != state.selected)
+					paste->pos = lx::vec2(0, 0);
+
+				paste->parent = state.selected;
+			}
+			else
+			{
+				// else paste it at the mouse position.
+				auto drop = hit_test(mouse, &graph->box, /* only_boxes: */ true);
+				if(drop == nullptr)
+					drop = &graph->box;
+
+				auto drop_abs_pos = compute_abs_pos(drop);
+				paste->pos = mouse - drop_abs_pos - drop->content_offset;
+
+				paste->parent = drop;
+				drop->subs.push_back(paste);
+			}
+
+			state.actions.push_back(Action {
+				.type = ACTION_PASTE,
+				.item = paste
+			});
+
+			relayout(graph, paste);
+			graph->flags |= FLAG_GRAPH_MODIFIED;
+		}
+		else if(is_char_pressed('z') && (imgui::GetIO().KeySuper && !imgui::GetIO().KeyShift))
+		{
+			handle_undo(graph);
+		}
+		else if(is_char_pressed('z') && (imgui::GetIO().KeySuper && imgui::GetIO().KeyShift))
+		{
+			handle_redo(graph);
+		}
 	}
 
 
@@ -153,9 +276,9 @@ namespace ui
 		auto parent = item->parent;
 		assert(parent != nullptr);
 
-		auto it = std::find(parent->box.begin(), parent->box.end(), item);
-		assert(it != parent->box.end());
-		parent->box.erase(it);
+		auto it = std::find(parent->subs.begin(), parent->subs.end(), item);
+		assert(it != parent->subs.end());
+		parent->subs.erase(it);
 	}
 
 	static void handle_reattach(Graph* graph)
@@ -175,23 +298,23 @@ namespace ui
 		// ok, now drop it -- only if the parent didn't change.
 		if(item->parent != drop)
 		{
+			state.actions.push_back(Action {
+				.type       = ACTION_REPARENT,
+				.item       = item,
+				.oldParent  = item->parent,
+				.oldPos     = item->pos,
+			});
+
 			erase_from_parent(item);
 
 			// also, recalculate its position relative to its new parent.
-			struct { auto operator()(Item* item) -> lx::vec2 {
-					if(!item)           return lx::vec2(0, 0);
-					if(!item->parent)   return item->pos;
-					return (*this)(item->parent) + item->parent->content_offset + item->pos;
-				}
-			} compute_abs_pos;
-
 			auto old_abs_pos = compute_abs_pos(item);
 			auto drop_abs_pos = compute_abs_pos(drop);
 
 			item->pos = old_abs_pos - drop_abs_pos - drop->content_offset;
 
 			// and insert it into the new parent.
-			drop->box.push_back(item);
+			drop->subs.push_back(item);
 			item->parent = drop;
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
@@ -274,6 +397,88 @@ namespace ui
 	}
 
 
+	void handle_undo(Graph* graph)
+	{
+		// no more actions.
+		if(state.actionIndex >= state.actions.size())
+		{
+			lg::log("ui", "no more actions to undo");
+			return;
+		}
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+		auto& action = state.actions[state.actions.size() - (++state.actionIndex)];
+		switch(action.type)
+		{
+			case ACTION_CUT:
+			case ACTION_DELETE:
+				action.item->parent->subs.push_back(action.item);
+				ui::relayout(graph, action.item);
+				break;
+
+			case ACTION_PASTE:
+				erase_from_parent(action.item);
+				break;
+
+			case ACTION_REPARENT:
+				// since we are undoing, the existing parent and positions are the new ones
+				erase_from_parent(action.item);
+				std::swap(action.item->parent, action.oldParent);
+				std::swap(action.item->pos, action.oldPos);
+
+				// the parent got swapped, so add it to the old parent.
+				action.item->parent->subs.push_back(action.item);
+				ui::relayout(graph, action.item);
+				break;
+
+			default:
+				lg::error("ui", "unknown action type '{}'", action.type);
+				break;
+		}
+	}
+
+	void handle_redo(Graph* graph)
+	{
+		// no more actions.
+		if(state.actionIndex == 0)
+		{
+			lg::log("ui", "no more actions to redo");
+			return;
+		}
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+		auto& action = state.actions[state.actions.size() - (state.actionIndex--)];
+		switch(action.type)
+		{
+			case ACTION_CUT:
+				state.clipboard = action.item;
+				[[fallthrough]];
+
+			case ACTION_DELETE:
+				erase_from_parent(action.item);
+				break;
+
+			case ACTION_PASTE:
+				action.item->parent->subs.push_back(action.item);
+				ui::relayout(graph, action.item);
+				break;
+
+			case ACTION_REPARENT:
+				// since we are redoing, the existing parent and positions are the old ones
+				erase_from_parent(action.item);
+				std::swap(action.item->parent, action.oldParent);
+				std::swap(action.item->pos, action.oldPos);
+
+				// the parent got swapped, so add it to the new parent.
+				action.item->parent->subs.push_back(action.item);
+				ui::relayout(graph, action.item);
+				break;
+
+			default:
+				lg::error("ui", "unknown action type '{}'", action.type);
+				break;
+		}
+	}
 
 
 
@@ -286,7 +491,16 @@ namespace ui
 
 
 
+	static lx::vec2 compute_abs_pos(Item* item)
+	{
+		if(!item)
+			return lx::vec2(0, 0);
 
+		if(!item->parent)
+			return item->pos;
+
+		return compute_abs_pos(item->parent) + item->parent->content_offset + item->pos;
+	}
 
 	static Item* hit_test(const lx::vec2& hit, Item* item, bool only_boxes, Item* ignoring)
 	{
@@ -296,7 +510,7 @@ namespace ui
 		if(item->isBox)
 		{
 			// prioritise hitting the children
-			for(auto child : item->box)
+			for(auto child : item->subs)
 			{
 				auto x = hit_test(hit - (item->pos + item->content_offset), child, only_boxes, ignoring);
 				if(x != nullptr && x != ignoring && (!only_boxes || x->isBox))
@@ -358,12 +572,27 @@ namespace ui
 			else if(check_edge(mouse, tl, bl, RESIZE_EDGE_THRESHOLD))   return 7;
 		}
 
-		for(auto child : item->box)
+		for(auto child : item->subs)
 		{
 			auto x = get_resize_edge(mouse - (item->pos + item->content_offset), child);
 			if(x != 0) return x;
 		}
 
 		return 0;
+	}
+
+	static bool is_char_pressed(char key)
+	{
+		if('A' <= key && key <= 'Z')    return imgui::IsKeyPressed(SDL_SCANCODE_A + (key - 'A'));
+		if('a' <= key && key <= 'z')    return imgui::IsKeyPressed(SDL_SCANCODE_A + (key - 'a'));
+		if('1' <= key && key <= '9')    return imgui::IsKeyPressed(SDL_SCANCODE_1 + (key - '1'));
+		if(key == '0')                  return imgui::IsKeyPressed(SDL_SCANCODE_0);
+
+		return false;
+	}
+
+	static bool is_key_pressed(uint32_t scancode)
+	{
+		return imgui::IsKeyPressed(scancode);
 	}
 }

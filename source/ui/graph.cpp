@@ -6,16 +6,20 @@
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;
+using namespace ui::alpha;
 
 namespace ui
 {
-	using namespace alpha;
-	static void render(ImDrawList* dl, Graph* graph);
-	static lx::vec2 calc_origin();
-
-	void autoLayout(Graph* graph, double width);
-
 	constexpr double TOP_LEVEL_PADDING = 20;
+
+	static lx::vec2 calc_origin();
+	static void render(ImDrawList* dl, Graph* graph);
+
+	int getNextId()
+	{
+		static int nextId = 0;
+		return nextId++;
+	}
 
 	void draw_graph(Graph* graph)
 	{
@@ -28,7 +32,7 @@ namespace ui
 
 		// if we already laid it out, then don't re-lay it out. we shouldn't be re-laying it
 		// every frame, because then resizing the window will move things and it'll be very annoying.
-		if(graph->box.size == lx::vec2())
+		if(graph->box.size == lx::vec2() || (graph->flags & FLAG_FORCE_AUTO_LAYOUT))
 			autoLayout(graph, geom.graph.size.x - 2 * TOP_LEVEL_PADDING);
 
 		imgui::SetNextWindowContentSize(graph->box.size);
@@ -57,17 +61,19 @@ namespace ui
 
 		util::colour outlineColour;
 		if(item->flags & FLAG_DETACHED)
-			outlineColour = util::colour::green();
+			outlineColour = theme.boxDetached;
 
 		else if(item->flags & FLAG_DROP_TARGET)
-			outlineColour = util::colour::blue();
+			outlineColour = theme.boxDropTarget;
 
 		else if(item->flags & FLAG_SELECTED)
-			outlineColour = util::colour::red();
+			outlineColour = theme.boxSelection;
+
+		else if(item->flags & FLAG_MOUSE_HOVER)
+			outlineColour = theme.boxHover;
 
 		else
 			outlineColour = theme.foreground;
-
 
 		if(item->isBox)
 		{
@@ -77,16 +83,19 @@ namespace ui
 					outlineColour.u32(), 0, 0, 2);
 			}
 
-			for(auto child : item->box)
+			for(auto child : item->subs)
 				render(dl, origin + item->pos + item->content_offset, child);
 		}
 		else
 		{
 			dl->AddText(origin + item->pos + item->content_offset,
-				outlineColour.u32(), item->var.c_str());
+				theme.foreground.u32(), item->name.c_str());
 
-			dl->AddRect(origin + item->pos, origin + item->pos + item->size,
-				util::colour::blue().u32(), 0, 0, 1);
+			if(item->flags & (FLAG_SELECTED | FLAG_MOUSE_HOVER))
+			{
+				dl->AddRect(origin + item->pos, origin + item->pos + item->size,
+					outlineColour.u32(), 0, 0, 2);
+			}
 		}
 	}
 
@@ -105,14 +114,5 @@ namespace ui
 		origin -= lx::vec2(sx, sy);
 
 		return origin;
-	}
-
-
-
-	alpha::Item::~Item()
-	{
-		// an item owns its children.
-		for(auto child : this->box)
-			delete child;
 	}
 }

@@ -17,9 +17,6 @@ namespace ui
 	// contents wider than the screen width.
 	struct LayoutState
 	{
-		int id = 0;
-
-
 		double maxWidth = 0;
 
 		int boxNesting = 0;
@@ -44,7 +41,6 @@ namespace ui
 
 	static void auto_layout(LayoutState& st, lx::vec2 pos, Item* item)
 	{
-		item->id = ++st.id;
 		item->content_offset = lx::vec2(OUTER_ITEM_PADDING);
 
 		if(item->isBox)
@@ -57,16 +53,16 @@ namespace ui
 
 			st.boxNesting++;
 			st.stackHeights.push_back(0);
-			for(size_t i = 0; i < item->box.size(); i++)
+			for(size_t i = 0; i < item->subs.size(); i++)
 			{
-				auto_layout(st, cursor, item->box[i]);
-				item->box[i]->parent = item;
+				auto_layout(st, cursor, item->subs[i]);
+				item->subs[i]->parent = item;
 
-				cursor.x += item->box[i]->size.x;
+				cursor.x += item->subs[i]->size.x;
 
 				stackWidth = std::max(stackWidth, cursor.x - startX);
 
-				if(i + 1 < item->box.size())
+				if(i + 1 < item->subs.size())
 					cursor.x += INTER_ITEM_SPACING;
 			}
 
@@ -79,7 +75,7 @@ namespace ui
 		}
 		else
 		{
-			auto _sz = imgui::CalcTextSize(item->var.c_str());
+			auto _sz = imgui::CalcTextSize(item->name.c_str());
 			auto sz = lx::vec2(_sz.x, _sz.y);
 
 			item->pos = pos;
@@ -92,10 +88,10 @@ namespace ui
 
 	void autoLayout(Graph* graph, double width)
 	{
+		graph->flags &= ~FLAG_FORCE_AUTO_LAYOUT;
+
 		LayoutState st = { .maxWidth = width, .stackHeights = { 0 } };
 		auto_layout(st, lx::vec2(0, 0), &graph->box);
-
-		graph->maxid = st.id;
 	}
 
 
@@ -128,7 +124,7 @@ namespace ui
 			return;
 
 		item->flags |= FLAG_SHOVED;
-		for(auto sib : box->box)
+		for(auto sib : box->subs)
 		{
 			if(sib == item)
 				continue;
@@ -183,7 +179,7 @@ namespace ui
 			auto br = lx::vec2(-INFINITY);  // bottom right
 
 			// first, calculate the top-left bound
-			for(auto child : box->box)
+			for(auto child : box->subs)
 				tl = lx::min(tl, child->pos);
 
 			bool adjusted_x = false;
@@ -206,7 +202,7 @@ namespace ui
 			// after the adjustments above, we know that this->pos is not negative (at least (0, 0)).
 			if(adjusted_x || adjusted_y)
 			{
-				for(auto& child : box->box)
+				for(auto& child : box->subs)
 				{
 					if(adjusted_x) child->pos.x -= tl.x - BOX_H_PADDING;
 					if(adjusted_y) child->pos.y -= tl.y - BOX_V_PADDING;
@@ -214,7 +210,7 @@ namespace ui
 			}
 
 			// then calculate the bottom right bound (after shifting all the children)
-			for(auto child : box->box)
+			for(auto child : box->subs)
 				br = lx::max(br, child->pos + child->size);
 
 			// if(br + lx::vec2(BOX_H_PADDING, BOX_V_PADDING) + 2 * box->content_offset > box->size)

@@ -51,7 +51,7 @@ namespace lg
 	}
 
 	template <typename... Args>
-	static void fatal(zbuf::str_view sys, const std::string& fmt, Args&&... args)
+	[[noreturn]] static void fatal(zbuf::str_view sys, const std::string& fmt, Args&&... args)
 	{
 		__generic_log(3, sys, fmt, args...);
 		abort();
@@ -66,6 +66,8 @@ namespace lg
 
 namespace util
 {
+	uint32_t loadImageFromFile(zbuf::str_view path);
+
 	namespace random
 	{
 		template <typename T> T get();
