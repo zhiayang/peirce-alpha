@@ -5,15 +5,48 @@
 #include "ui.h"
 #include "imgui/imgui.h"
 
-namespace ui::geom
+namespace ui::geometry
 {
-	constexpr double SIDEBAR_MIN_WIDTH = 250;
-	constexpr double SIDEBAR_MAX_WIDTH = 400;
+	constexpr double SIDEBAR_MIN_WIDTH = 200;
+	constexpr double SIDEBAR_MAX_WIDTH = 350;
 	constexpr double SIDEBAR_WIDTH_PERCENT = 0.22;
+
+	static Geometry geom;
 
 	double sidebarWidth()
 	{
 		return lx::clamp(SIDEBAR_WIDTH_PERCENT * ImGui::GetIO().DisplaySize.x,
 			SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+	}
+
+	void update()
+	{
+		auto& io = ImGui::GetIO();
+
+		auto sidebarWidth = lx::clamp(SIDEBAR_WIDTH_PERCENT * io.DisplaySize.x, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+		auto exprbarHeight = 40.0;
+
+		geom = {
+			.display = {
+				.size  = { io.DisplaySize.x, io.DisplaySize.y }
+			},
+			.sidebar = {
+				.pos = { 0, 0 },
+				.size = { sidebarWidth, io.DisplaySize.y }
+			},
+			.graph = {
+				.pos = { sidebarWidth, 0 },
+				.size = { io.DisplaySize.x - sidebarWidth, io.DisplaySize.y - exprbarHeight }
+			},
+			.exprbar = {
+				.pos = { sidebarWidth, io.DisplaySize.y - exprbarHeight },
+				.size = { io.DisplaySize.x - sidebarWidth, exprbarHeight }
+			},
+		};
+	}
+
+	Geometry get()
+	{
+		return geom;
 	}
 }

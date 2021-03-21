@@ -2,6 +2,9 @@
 // Copyright (c) 2021, zhiayang
 // Licensed under the Apache License Version 2.0.
 
+#include <chrono>
+#include <numeric>
+
 #include <GL/gl3w.h>
 #include <SDL2/SDL.h>
 
@@ -18,7 +21,31 @@ namespace ui
 		SDL_GLContext glContext;
 
 		Theme theme;
+
+		double frameBegin;
+
+		double fps;
+		double frametime;
+
+		ImFont* smallFont;
+
+		SDL_Cursor* resizeCursorNESW = 0;
+		SDL_Cursor* resizeCursorNWSE = 0;
 	} uiState;
+
+	static std::pair<double, double> calculate_fps(double frametime);
+
+	// defined in util/cursors.m
+	extern "C" SDL_Cursor* macos_create_system_cursor(SDL_SystemCursor id);
+	static SDL_Cursor* create_sdl_system_cursor(SDL_SystemCursor id)
+	{
+	#ifdef __APPLE__
+		return macos_create_system_cursor(id);
+	#else
+		return SDL_CreateSystemCursor(id);
+	#endif
+	}
+
 
 	void init(zbuf::str_view title)
 	{
@@ -38,7 +65,7 @@ namespace ui
 		// setup the window
 		uiState.sdlWindow = SDL_CreateWindow(title.str().c_str(),
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-			640, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+			720, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 
 		if(uiState.sdlWindow == nullptr)
 			lg::fatal("ui", "couldn't create SDL window: {}", SDL_GetError());
@@ -55,6 +82,9 @@ namespace ui
 
 		ImGui_ImplSDL2_InitForOpenGL(uiState.sdlWindow, uiState.glContext);
 		ImGui_ImplOpenGL3_Init("#version 330 core");
+
+		uiState.resizeCursorNWSE = create_sdl_system_cursor(SDL_SYSTEM_CURSOR_SIZENWSE);
+		uiState.resizeCursorNESW = create_sdl_system_cursor(SDL_SYSTEM_CURSOR_SIZENESW);
 	}
 
 	void setup(double uiscale, double fontsize, Theme theme)
@@ -70,6 +100,8 @@ namespace ui
 		}
 
 		io.Fonts->AddFontFromFileTTF("build/assets/menlo.ttf", fontsize, &config, 0);
+		uiState.smallFont = io.Fonts->AddFontFromFileTTF("build/assets/menlo.ttf", 12, &config, 0);
+
 		io.Fonts->Build();
 
 		uiState.theme = std::move(theme);
@@ -78,8 +110,8 @@ namespace ui
 		auto& style = ImGui::GetStyle();
 		{
 			style.ScaleAllSizes(uiscale);
-			style.ScrollbarSize = 16;
-			style.ScrollbarRounding = 4;
+			style.ScrollbarSize = 12;
+			style.ScrollbarRounding = 2;
 
 			style.Colors[ImGuiCol_Text] = theme.foreground;
 			style.Colors[ImGuiCol_WindowBg] = theme.background;
@@ -125,8 +157,16 @@ namespace ui
 		return true;
 	}
 
+	static double timestamp()
+	{
+		std::chrono::duration<double> dur = std::chrono::system_clock::now().time_since_epoch();
+		return dur.count();
+	}
+
 	void startFrame()
 	{
+		uiState.frameBegin = timestamp();
+
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame(uiState.sdlWindow);
 		ImGui::NewFrame();
@@ -135,6 +175,13 @@ namespace ui
 	void endFrame()
 	{
 		auto& io = ImGui::GetIO();
+
+		ImGui::GetForegroundDrawList()->AddText(
+			uiState.smallFont, 12,
+			lx::vec2(geometry::get().display.size.x - 115, 5),
+			uiState.theme.foreground.u32(),
+			zpr::sprint("{.1f} fps / {.1f} ms", uiState.fps, uiState.frametime * 1000).c_str()
+		);
 
 		ImGui::Render();
 		glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);
@@ -145,5 +192,33 @@ namespace ui
 		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		SDL_GL_SwapWindow(uiState.sdlWindow);
+
+		std::tie(uiState.fps, uiState.frametime) = calculate_fps(timestamp() - uiState.frameBegin);
+	}
+
+
+	static std::pair<double, double> calculate_fps(double frametime)
+	{
+		constexpr size_t BUFFER_SIZE = 90;
+
+		static size_t idx = 0;
+		static double buffer[BUFFER_SIZE] = { };
+
+		buffer[idx++ % BUFFER_SIZE] = frametime;
+		auto ft = std::accumulate(buffer, buffer + BUFFER_SIZE, 0.0) / (double) BUFFER_SIZE;
+
+		return { 1.0 / ft, ft };
+	}
+
+	void setCursor(int cursor)
+	{
+		if(cursor == ImGuiMouseCursor_ResizeNESW)
+			SDL_SetCursor(uiState.resizeCursorNESW);
+
+		else if(cursor == ImGuiMouseCursor_ResizeNWSE)
+			SDL_SetCursor(uiState.resizeCursorNWSE);
+
+		else
+			ImGui::SetMouseCursor(cursor);
 	}
 }

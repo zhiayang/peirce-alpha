@@ -21,32 +21,47 @@ namespace ast
 
 	struct Expr
 	{
-		virtual ~Expr() { }
+		Expr(int t) : type(t) { }
+		virtual ~Expr();
+
+		virtual std::string str() const = 0;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const = 0;
 
-		int type;
+		const int type;
 	};
 
 	struct Var : Expr
 	{
-		static constexpr int TYPE = EXPR_VAR;
+		Var(std::string s) : Expr(TYPE), name(std::move(s)) { }
+		virtual ~Var() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_VAR;
 
 		std::string name;
 	};
 
 	struct Lit : Expr
 	{
-		static constexpr int TYPE = EXPR_LIT;
+		Lit(bool v) : Expr(TYPE), value(v) { }
+		virtual ~Lit() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_LIT;
 
 		bool value;
 	};
 
 	struct And : Expr
 	{
-		static constexpr int TYPE = EXPR_AND;
+		And(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
+		virtual ~And() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_AND;
 
 		Expr* left = 0;
 		Expr* right = 0;
@@ -54,16 +69,24 @@ namespace ast
 
 	struct Not : Expr
 	{
-		static constexpr int TYPE = EXPR_NOT;
+		Not(Expr* e) : Expr(TYPE), e(e) { }
+		virtual ~Not() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_NOT;
 
 		Expr* e = 0;
 	};
 
 	struct Or : Expr
 	{
-		static constexpr int TYPE = EXPR_OR;
+		Or(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
+		virtual ~Or() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_OR;
 
 		Expr* left = 0;
 		Expr* right = 0;
@@ -71,8 +94,13 @@ namespace ast
 
 	struct Implies : Expr
 	{
-		static constexpr int TYPE = EXPR_IMPLIES;
+		Implies(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
+
+		virtual ~Implies() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_IMPLIES;
 
 		Expr* left = 0;
 		Expr* right = 0;
@@ -80,8 +108,13 @@ namespace ast
 
 	struct BidirImplies : Expr
 	{
-		static constexpr int TYPE = EXPR_BIDIRIMPLIES;
+		BidirImplies(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
+
+		virtual ~BidirImplies() override;
+		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
+
+		static constexpr int TYPE = EXPR_BIDIRIMPLIES;
 
 		Expr* left = 0;
 		Expr* right = 0;
@@ -98,7 +131,7 @@ namespace parser
 
 	struct Error
 	{
-		std::string message;
+		std::string msg;
 		Location loc;
 	};
 
@@ -106,11 +139,6 @@ namespace parser
 	{
 		Invalid,
 
-		Pipe,
-		Ampersand,
-		Asterisk,
-		Exclamation,
-		Plus,
 		LParen,
 		RParen,
 		LBrace,
@@ -119,7 +147,7 @@ namespace parser
 		LeftArrow,
 		DoubleArrow,
 		Backslash,
-		Tilde,
+
 		Not,
 		And,
 		Or,
@@ -134,7 +162,7 @@ namespace parser
 	struct Token
 	{
 		Token() { }
-		Token(TokenType t, Location loc, zbuf::str_view s) : text(s), type(t) { }
+		Token(TokenType t, Location loc, zbuf::str_view s) : loc(loc), text(s), type(t) { }
 
 		Location loc;
 		zbuf::str_view text;

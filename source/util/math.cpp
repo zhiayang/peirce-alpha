@@ -5,9 +5,14 @@
 #include <cmath>
 
 #include "lx.h"
+#include "imgui/imgui.h"
 
 namespace lx
 {
+	vec2::vec2(const ImVec2& imv2) : x(imv2.x), y(imv2.y)
+	{
+	}
+
 	double& vec2::operator[] (size_t i)
 	{
 		assert(i == 0 || i == 1);
@@ -20,15 +25,15 @@ namespace lx
 		return this->ptr[i];
 	}
 
-	vec2 vec2::operator - () const { return vec2(-this->x, -this->y); }
+	vec2 vec2::operator- () const { return vec2(-this->x, -this->y); }
 
-	vec2& vec2::operator += (const vec2& v) { this->x += v.x; this->y += v.y; return *this; }
-	vec2& vec2::operator -= (const vec2& v) { this->x -= v.x; this->y -= v.y; return *this; }
-	vec2& vec2::operator *= (const vec2& v) { this->x *= v.x; this->y *= v.y; return *this; }
-	vec2& vec2::operator /= (const vec2& v) { this->x /= v.x; this->y /= v.y; return *this; }
+	vec2& vec2::operator+= (const vec2& v) { this->x += v.x; this->y += v.y; return *this; }
+	vec2& vec2::operator-= (const vec2& v) { this->x -= v.x; this->y -= v.y; return *this; }
+	vec2& vec2::operator*= (const vec2& v) { this->x *= v.x; this->y *= v.y; return *this; }
+	vec2& vec2::operator/= (const vec2& v) { this->x /= v.x; this->y /= v.y; return *this; }
 
-	vec2& vec2::operator *= (double s) { this->x *= s; this->y *= s; return *this; }
-	vec2& vec2::operator /= (double s) { this->x /= s; this->y /= s; return *this; }
+	vec2& vec2::operator*= (double s) { this->x *= s; this->y *= s; return *this; }
+	vec2& vec2::operator/= (double s) { this->x /= s; this->y /= s; return *this; }
 
 
 	double vec2::magnitude() const { return sqrt(this->magnitudeSquared()); }
@@ -42,17 +47,22 @@ namespace lx
 	}
 
 
-	vec2 operator + (const vec2& a, const vec2& b) { return vec2(a.x + b.x, a.y + b.y); }
-	vec2 operator - (const vec2& a, const vec2& b) { return vec2(a.x - b.x, a.y - b.y); }
-	vec2 operator * (const vec2& a, const vec2& b) { return vec2(a.x * b.x, a.y * b.y); }
-	vec2 operator / (const vec2& a, const vec2& b) { return vec2(a.x / b.x, a.y / b.y); }
-	bool operator == (const vec2& a, const vec2& b) { return a.x == b.x && a.y == b.y; }
+	vec2 operator+ (const vec2& a, const vec2& b) { return vec2(a.x + b.x, a.y + b.y); }
+	vec2 operator- (const vec2& a, const vec2& b) { return vec2(a.x - b.x, a.y - b.y); }
+	vec2 operator* (const vec2& a, const vec2& b) { return vec2(a.x * b.x, a.y * b.y); }
+	vec2 operator/ (const vec2& a, const vec2& b) { return vec2(a.x / b.x, a.y / b.y); }
+	bool operator== (const vec2& a, const vec2& b) { return a.x == b.x && a.y == b.y; }
+	bool operator!= (const vec2& a, const vec2& b) { return a.x != b.x || a.y != b.y; }
+	// bool operator< (const vec2& a, const vec2& b)  { return a.x < b.x || a.y < b.y; }
+	// bool operator> (const vec2& a, const vec2& b)  { return a.x > b.x || a.y > b.y; }
+	// bool operator<= (const vec2& a, const vec2& b) { return a.x <= b.x || a.y <= b.y; }
+	// bool operator>= (const vec2& a, const vec2& b) { return a.x >= b.x || a.y >= b.y; }
 
-	vec2 operator * (const vec2& a, double b) { return vec2(a.x * b, a.y * b); }
-	vec2 operator / (const vec2& a, double b) { return vec2(a.x / b, a.y / b); }
+	vec2 operator* (const vec2& a, double b) { return vec2(a.x * b, a.y * b); }
+	vec2 operator/ (const vec2& a, double b) { return vec2(a.x / b, a.y / b); }
 
-	vec2 operator * (double a, const vec2& b) { return b * a; }
-	vec2 operator / (double a, const vec2& b) { return b / a; }
+	vec2 operator* (double a, const vec2& b) { return b * a; }
+	vec2 operator/ (double a, const vec2& b) { return b / a; }
 
 	vec2 round(const vec2&v) { return vec2(std::round(v.x), std::round(v.y)); }
 	vec2 normalise(const vec2& v) { return v.normalised(); }
@@ -76,6 +86,22 @@ namespace lx
 	{
 		double ret = (v > max ? max : v);
 		return (ret < min ? min : ret);
+	}
+
+	vec2 min(const vec2& a, const vec2& b)
+	{
+		return vec2(std::min(a.x, b.x), std::min(a.y, b.y));
+	}
+
+	vec2 max(const vec2& a, const vec2& b)
+	{
+		return vec2(std::max(a.x, b.x), std::max(a.y, b.y));
+	}
+
+	bool inRect(const vec2& pt, const vec2& corner, const vec2& size)
+	{
+		return pt.x >= corner.x && pt.y >= corner.y
+			&& pt.x <= (corner + size).x && pt.y <= (corner + size).y;
 	}
 }
 

@@ -160,9 +160,9 @@ namespace util
 
 		static inline colour random()
 		{
-			return colour(random::get_float(0, 1),
-				random::get_float(0, 1),
-				random::get_float(0, 1));
+			return colour(random::get_float(0.2, 0.9),
+				random::get_float(0.2, 0.9),
+				random::get_float(0.2, 0.9));
 		}
 	};
 }
@@ -175,4 +175,23 @@ namespace unicode
 	size_t get_codepoint_length(zbuf::str_view str);
 	size_t is_letter(zbuf::str_view str);
 	size_t is_digit(zbuf::str_view str);
+}
+
+
+
+namespace zpr
+{
+	template <>
+	struct print_formatter<lx::vec2>
+	{
+		template <typename Cb>
+		void print(const lx::vec2& v, Cb&& cb, format_args args)
+		{
+			cb("(");
+			detail::print_one(static_cast<Cb&&>(cb), args, v.x);
+			cb(", ");
+			detail::print_one(static_cast<Cb&&>(cb), args, v.y);
+			cb(")");
+		}
+	};
 }

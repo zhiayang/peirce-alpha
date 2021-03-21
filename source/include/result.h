@@ -189,7 +189,6 @@ namespace zst
 	struct Result<void, E>
 	{
 	private:
-
 		static constexpr int STATE_NONE = 0;
 		static constexpr int STATE_VAL  = 1;
 		static constexpr int STATE_ERR  = 2;

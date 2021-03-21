@@ -51,6 +51,7 @@ namespace parser
 		}), k > 0))
 		{
 			src.remove_prefix(k);
+			idx += k;
 		}
 
 		if(src.empty())
@@ -78,6 +79,8 @@ namespace parser
 		else if MATCH_MULTICHAR_TOKEN("→", TT::RightArrow)
 		else if MATCH_MULTICHAR_TOKEN("⊤", TT::Top)
 		else if MATCH_MULTICHAR_TOKEN("⊥", TT::Bottom)
+		else if MATCH_MULTICHAR_TOKEN("/\\", TT::And)
+		else if MATCH_MULTICHAR_TOKEN("\\/", TT::Or)
 		else if(src[0] == '_' || (is_valid_first_ident_char(src) > 0))
 		{
 			size_t identLength = (src[0] == '_') ? 1 : is_valid_first_ident_char(src);
@@ -87,8 +90,7 @@ namespace parser
 			while((k = is_valid_identifier(tmp)), k > 0)
 				tmp.remove_prefix(k), identLength += k;
 
-			size_t read = identLength;
-			auto text = src.substr(0, identLength);
+			auto text = src.take(identLength);
 
 			auto type = TT::Invalid;
 			if(text == "and")       type = TT::And;
@@ -97,23 +99,22 @@ namespace parser
 			else                    type = TT::Identifier;
 
 			auto ret = Token(type, Location { idx, text.size() }, text);
-			src.remove_prefix(read);
+			src.remove_prefix(identLength);
 			return Ok(ret);
 		}
 		else
 		{
 			Token ret;
-			size_t sz = 1;
 			auto loc = Location { idx, 1 };
 
 			switch(src[0])
 			{
-				case '|': ret = Token(TT::Pipe, loc, src.take(1));          break;
-				case '&': ret = Token(TT::Ampersand, loc, src.take(1));     break;
-				case '*': ret = Token(TT::Asterisk, loc, src.take(1));      break;
-				case '!': ret = Token(TT::Exclamation, loc, src.take(1));   break;
-				case '+': ret = Token(TT::Plus, loc, src.take(1));          break;
-				case '~': ret = Token(TT::Tilde, loc, src.take(1));          break;
+				case '+': ret = Token(TT::Or, loc, src.take(1));            break;
+				case '|': ret = Token(TT::Or, loc, src.take(1));            break;
+				case '&': ret = Token(TT::And, loc, src.take(1));           break;
+				case '*': ret = Token(TT::And, loc, src.take(1));           break;
+				case '!': ret = Token(TT::Not, loc, src.take(1));           break;
+				case '~': ret = Token(TT::Not, loc, src.take(1));           break;
 				case '(': ret = Token(TT::LParen, loc, src.take(1));        break;
 				case ')': ret = Token(TT::RParen, loc, src.take(1));        break;
 				case '{': ret = Token(TT::LBrace, loc, src.take(1));        break;
@@ -122,16 +123,16 @@ namespace parser
 				case '1': ret = Token(TT::Top, loc, src.take(1));           break;
 				case '\\': ret = Token(TT::Backslash, loc, src.take(1));    break;
 
-				default:
-					lg::warn("lexer", "invalid token - stream: '{}'", src);
-
-					// try to unicode my way out of this.
-					sz = unicode::get_codepoint_length(src);
-					ret = Token(TT::Invalid, Location { idx, sz }, src.take(sz));
-					break;
+				default: {
+					auto sz = unicode::get_codepoint_length(src);
+					return Err(Error {
+						.msg = zpr::sprint("invalid token '{}'", src.take(sz)),
+						.loc = Location { idx, 1 }
+					});
+				}
 			}
 
-			src.remove_prefix(sz);
+			src.remove_prefix(1);
 			return Ok(ret);
 		}
 	}
@@ -139,8 +140,8 @@ namespace parser
 
 	zst::Result<std::vector<Token>, Error> lex(zbuf::str_view src)
 	{
+		Token tok = { };
 		std::vector<Token> ret;
-		Token tok;
 
 		size_t idx = 0;
 		while(true)
@@ -153,6 +154,7 @@ namespace parser
 				break;
 
 			ret.push_back(tok);
+			idx += tok.text.size();
 		}
 
 		return Ok(ret);

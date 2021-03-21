@@ -9,45 +9,51 @@ namespace imgui = ImGui;
 
 namespace ui
 {
-	static void draw_sidebar();
+	void draw_sidebar(alpha::Graph* graph);     // sidebar.cpp
+	void draw_exprbar(alpha::Graph* graph);     // exprbar.cpp
+	void draw_graph(alpha::Graph* graph);       // graph.cpp
+
+	static alpha::Graph make()
+	{
+		using namespace alpha;
+
+		return Graph {
+			.box = Item { .isBox = true, .var = "__root", .box = {
+				new Item { .isBox = false, .var = "A" },
+				new Item { .isBox = true, .var = "box_Bs", .box = {
+					new Item { .isBox = false, .var = "B" },
+					new Item { .isBox = false, .var = "B" },
+					new Item { .isBox = false, .var = "B" },
+					new Item { .isBox = false, .var = "B" },
+					new Item { .isBox = true, .var = "box_C+X", .box = {
+						new Item { .isBox = false, .var = "C" },
+						new Item { .isBox = true, .var = "box_X1", .box = {
+							new Item { .isBox = true, .var = "box_X2", .box = {
+								new Item { .isBox = false, .var = "X" }
+							} }
+						} }
+					} }
+				} }
+			} }
+		};
+	}
+
+	void update()
+	{
+		ui::startFrame();
+
+		geometry::update();
+		ui::draw();
+
+		ui::endFrame();
+	}
 
 	void draw()
 	{
-		// auto& io = imgui::GetIO();
-		// auto& theme = ui::theme();
-		draw_sidebar();
-	}
+		static auto g = make();
 
-
-
-	static void draw_sidebar()
-	{
-		auto EXTRA_PADDING = lx::vec2(5);
-
-		auto& io = imgui::GetIO();
-		auto& theme = ui::theme();
-
-		imgui::SetNextWindowPos(-1 * EXTRA_PADDING);
-		imgui::SetNextWindowSize(lx::vec2(geom::sidebarWidth(), io.DisplaySize.y) + EXTRA_PADDING);
-
-		imgui::PushStyleColor(ImGuiCol_WindowBg, theme.sidebarBg);
-
-		imgui::Begin(" ", nullptr,
-			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoTitleBar |
-			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-
-		imgui::Text("asdf %s", "bsdf");
-
-		// since window borders are off, we draw the separator manually.
-		{
-			imgui::GetBackgroundDrawList()->AddLine(
-				lx::vec2(geom::sidebarWidth(), -EXTRA_PADDING.y),
-				lx::vec2(geom::sidebarWidth(), io.DisplaySize.y + EXTRA_PADDING.y),
-				theme.foreground.u32(), /* thickness: */ 2.0
-			);
-		}
-
-		imgui::End();
-		imgui::PopStyleColor();
+		draw_graph(&g);
+		draw_sidebar(&g);
+		draw_exprbar(&g);
 	}
 }

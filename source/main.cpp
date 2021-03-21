@@ -7,13 +7,18 @@
 
 int main(int argc, char** argv)
 {
-	zbuf::str_view in = "";
+	// zbuf::str_view in = "a & b & c & d -> x & y & z";
+	auto in = "(a -> b) -> c";
+	auto x = parser::parse(in);
+
+	if(!x)  zpr::println("error: {}", x.error().msg);
+	else    zpr::println("parsed: {}", x.unwrap()->str());
 
 
 
 
 
-#if 0
+#if 1
 	(void) argc;
 	(void) argv;
 
@@ -25,11 +30,7 @@ int main(int argc, char** argv)
 		if(!ui::poll())
 			break;
 
-		ui::startFrame();
-
-		ui::draw();
-
-		ui::endFrame();
+		ui::update();
 	}
 
 	ui::stop();

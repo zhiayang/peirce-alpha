@@ -90,8 +90,8 @@ bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event)
     {
     case SDL_MOUSEWHEEL:
         {
-            if (event->wheel.x > 0) io.MouseWheelH += 1;
-            if (event->wheel.x < 0) io.MouseWheelH -= 1;
+            if (event->wheel.x > 0) io.MouseWheelH -= 1;
+            if (event->wheel.x < 0) io.MouseWheelH += 1;
             if (event->wheel.y > 0) io.MouseWheel += 1;
             if (event->wheel.y < 0) io.MouseWheel -= 1;
             return true;

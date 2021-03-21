@@ -9,13 +9,17 @@ CXX             := clang++
 
 CFLAGS          = $(COMMON_CFLAGS) -std=c99 -fPIC -O3
 CXXFLAGS        = $(COMMON_CFLAGS) -Wno-old-style-cast -std=c++17 -fno-exceptions
+OBJCFLAGS       = $(COMMON_CFLAGS)
 
 CXXSRC          = $(shell find source -iname "*.cpp" -print)
 CXXOBJ          = $(CXXSRC:.cpp=.cpp.o)
 CXXDEPS         = $(CXXOBJ:.o=.d)
 
+OBJCSRC         = $(shell find source -iname "*.m" -print)
+OBJCOBJ         = $(OBJCSRC:.m=.m.o)
+
 LIBS            = sdl2
-FRAMEWORKS      = -framework OpenGL -framework CoreFoundation
+FRAMEWORKS      =
 
 IMGUI_SRCS      = $(shell find external/imgui -iname "*.cpp" -print)
 IMGUI_OBJS      = $(IMGUI_SRCS:.cpp=.cpp.o)
@@ -25,7 +29,6 @@ GL3W_OBJS       = $(GL3W_SRCS:.c=.c.o)
 
 UTF8PROC_SRCS   = external/utf8proc/utf8proc.c
 UTF8PROC_OBJS   = $(UTF8PROC_SRCS:.c=.c.o)
-
 
 PRECOMP_HDRS    := source/include/precompile.h
 PRECOMP_GCH     := $(PRECOMP_HDRS:.h=.h.gch)
@@ -46,9 +49,10 @@ test: build
 
 build: $(OUTPUT_BIN)
 
-$(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS)
+$(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS) $(OBJCOBJ)
 	@echo "  $(notdir $@)"
-	@$(CXX) $(CXXFLAGS) $(WARNINGS) $(DEFINES) -Iexternal -o $@ $^ $(shell pkg-config --libs $(LIBS)) $(FRAMEWORKS)
+	@$(CXX) $(CXXFLAGS) $(WARNINGS) $(DEFINES) -Iexternal -o $@ $^  /usr/local/lib/libSDL2.a $(FRAMEWORKS) \
+		$(shell pkg-config --libs-only-other --static sdl2) -liconv
 
 %.cpp.o: %.cpp Makefile $(PRECOMP_GCH)
 	@echo "  $(notdir $<)"
@@ -58,6 +62,10 @@ $(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS)
 %.c.o: %.c Makefile
 	@echo "  $(notdir $<)"
 	@$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+%.m.o: %.m Makefile
+	@echo "  $(notdir $<)"
+	@$(CC) -fmodules -mmacosx-version-min=10.12 -c -o $@ $<
 
 %.h.gch: %.h Makefile
 	@printf "# precompiling header $<\n"
