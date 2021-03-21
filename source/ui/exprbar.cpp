@@ -28,6 +28,7 @@ namespace ui
 		imgui::SetNextWindowPos(geom.exprbar.pos);
 		imgui::SetNextWindowSize(geom.exprbar.size);
 
+		imgui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
 		imgui::PushStyleVar(ImGuiStyleVar_WindowPadding, lx::vec2(0));
 		imgui::PushStyleVar(ImGuiStyleVar_FramePadding, lx::vec2(10));
 
@@ -48,15 +49,13 @@ namespace ui
 		imgui::SetNextItemWidth(-40);
 		imgui::InputTextWithHint("", "expression", state.text_buffer, BUFFER_SIZE);
 
-		imgui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
-		imgui::PushStyleVar(ImGuiStyleVar_WindowPadding, lx::vec2(0));
 		imgui::PushStyleVar(ImGuiStyleVar_FramePadding, lx::vec2(4));
 		{
 			imgui::SetCursorPos(lx::vec2(geom.exprbar.size.x - 40, geom.exprbar.size.y - 40));
 			if(imgui::ImageButton(theme.textures.submit, lx::vec2(32, 32)))
 				submit_expr(graph);
 		}
-		imgui::PopStyleVar(3);
+		imgui::PopStyleVar();
 
 
 		// since window borders are off, we draw the separator manually.
@@ -70,7 +69,7 @@ namespace ui
 
 		imgui::End();
 		imgui::PopStyleColor(2);
-		imgui::PopStyleVar(2);
+		imgui::PopStyleVar(3);
 	}
 
 	static void submit_expr(Graph* graph)
