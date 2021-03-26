@@ -27,9 +27,6 @@ namespace ui::geometry
 		auto exprbarHeight = 40.0;
 
 		geom = {
-			.display = {
-				.size  = { io.DisplaySize.x, io.DisplaySize.y }
-			},
 			.sidebar = {
 				.pos = { 0, 0 },
 				.size = { sidebarWidth, io.DisplaySize.y }
@@ -41,6 +38,9 @@ namespace ui::geometry
 			.exprbar = {
 				.pos = { sidebarWidth, io.DisplaySize.y - exprbarHeight },
 				.size = { io.DisplaySize.x - sidebarWidth, exprbarHeight }
+			},
+			.display = {
+				.size  = { io.DisplaySize.x, io.DisplaySize.y }
 			},
 		};
 	}

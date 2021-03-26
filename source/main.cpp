@@ -8,6 +8,13 @@
 #include "ui.h"
 #include "ast.h"
 
+
+static bool quit = false;
+void ui::quit()
+{
+	::quit = true;
+}
+
 int main(int argc, char** argv)
 {
 	(void) argc;
@@ -17,7 +24,7 @@ int main(int argc, char** argv)
 	ui::setup(/* ui scale: */ 2, /* font size: */ 18.0, ui::light());
 
 	int counter = 0;
-	while(true)
+	while(!quit)
 	{
 		using namespace std::chrono_literals;
 

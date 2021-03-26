@@ -3,6 +3,7 @@
 // Licensed under the Apache License Version 2.0.
 
 #include <deque>
+#include <algorithm>
 #include <SDL2/SDL.h>
 
 #include "ui.h"
@@ -73,8 +74,12 @@ namespace ui
 		// for each redo index--.
 		size_t actionIndex = 0;
 		std::deque<Action> actions;
+
+		bool editing = false;
 	} state;
 
+	bool isEditing() { return state.editing; }
+	void toggleEditing() { state.editing ^= true; lg::log("ui", "editing = {}", state.editing); }
 
 	void interact(lx::vec2 origin, Graph* graph)
 	{
@@ -113,7 +118,7 @@ namespace ui
 
 		// note: handle selected things first, so that if something is deleted in this frame,
 		// the cursor doesn't lag for one frame.
-		if(state.selected != nullptr)
+		if(state.selected != nullptr && state.editing)
 		{
 			bool was_detached = (state.selected->flags & FLAG_DETACHED);
 			if(was_detached)
@@ -179,7 +184,7 @@ namespace ui
 
 		// prune the actions;
 		while(state.actions.size() > MAX_ACTIONS)
-			state.actions.pop_front();
+			state.actions.pop_back();
 	}
 
 
@@ -188,9 +193,9 @@ namespace ui
 
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
 	{
-		if(state.selected != nullptr && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
+		if(state.editing && state.selected != nullptr && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
 		{
-			state.actions.push_back(Action {
+			state.actions.push_front(Action {
 				.type   = ACTION_DELETE,
 				.item   = state.selected
 			});
@@ -208,22 +213,22 @@ namespace ui
 			&& (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
 		{
 			state.clipboard = state.selected;
-			state.selected->flags &= ~FLAG_SELECTED;
 
-			if(is_char_pressed('x'))
+			if(state.editing && is_char_pressed('x'))
 			{
-				state.actions.push_back(Action {
+				state.actions.push_front(Action {
 					.type = ACTION_CUT,
 					.item = state.selected
 				});
 
 				erase_from_parent(state.selected);
+				state.selected->flags &= ~FLAG_SELECTED;
 				state.selected = nullptr;
 			}
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
-		else if(is_char_pressed('v') && (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
+		else if(state.editing && is_char_pressed('v') && (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
 		{
 			auto paste = state.clipboard->clone();
 
@@ -252,7 +257,7 @@ namespace ui
 				drop->subs.push_back(paste);
 			}
 
-			state.actions.push_back(Action {
+			state.actions.push_front(Action {
 				.type = ACTION_PASTE,
 				.item = paste
 			});
@@ -260,13 +265,18 @@ namespace ui
 			relayout(graph, paste);
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
-		else if(is_char_pressed('z') && (imgui::GetIO().KeySuper && !imgui::GetIO().KeyShift))
+		else if(is_char_pressed('z') && ((imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl) && !imgui::GetIO().KeyShift))
 		{
 			handle_undo(graph);
 		}
-		else if(is_char_pressed('z') && (imgui::GetIO().KeySuper && imgui::GetIO().KeyShift))
+		else if(is_char_pressed('z') && ((imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl) && imgui::GetIO().KeyShift))
 		{
 			handle_redo(graph);
+		}
+		else if(is_char_pressed('q') && (imgui::GetIO().KeyCtrl))
+		{
+			lg::log("ui", "quitting");
+			ui::quit();
 		}
 	}
 
@@ -298,7 +308,7 @@ namespace ui
 		// ok, now drop it -- only if the parent didn't change.
 		if(item->parent != drop)
 		{
-			state.actions.push_back(Action {
+			state.actions.push_front(Action {
 				.type       = ACTION_REPARENT,
 				.item       = item,
 				.oldParent  = item->parent,
@@ -407,7 +417,7 @@ namespace ui
 		}
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
-		auto& action = state.actions[state.actions.size() - (++state.actionIndex)];
+		auto& action = state.actions[state.actionIndex++];
 		switch(action.type)
 		{
 			case ACTION_CUT:
@@ -447,7 +457,7 @@ namespace ui
 		}
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
-		auto& action = state.actions[state.actions.size() - (state.actionIndex--)];
+		auto& action = state.actions[state.actionIndex--];
 		switch(action.type)
 		{
 			case ACTION_CUT:

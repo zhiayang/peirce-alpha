@@ -20,6 +20,11 @@ namespace ui
 	void init(zbuf::str_view title);
 	void setup(double uiscale, double fontsize, Theme theme);
 	void stop();
+	void quit();
+
+
+	bool isEditing();
+	void toggleEditing();
 
 	// returns < 0 if we should quit, or else it returns the number of events processed.
 	int poll();
@@ -62,6 +67,7 @@ namespace ui
 
 		struct {
 			void* submit;
+			void* edit;
 		} textures;
 	};
 

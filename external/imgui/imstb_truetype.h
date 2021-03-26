@@ -4089,17 +4089,20 @@ STBTT_DEF int stbtt_PackFontRangesRenderIntoRects(stbtt_pack_context *spc, const
                                           scale * spc->v_oversample,
                                           0,0,
                                           glyph);
-         #if 1
+         #if defined(__APPLE__)
+            int asdf = 2;
+         #else
+            int asdf = 1;
+         #endif
             if (spc->h_oversample > 1)
                stbtt__h_prefilter(spc->pixels + r->x + r->y*spc->stride_in_bytes,
                                   r->w, r->h, spc->stride_in_bytes,
-                                  spc->h_oversample / 2);
+                                  spc->h_oversample / asdf);
 
             if (spc->v_oversample > 1)
                stbtt__v_prefilter(spc->pixels + r->x + r->y*spc->stride_in_bytes,
                                   r->w, r->h, spc->stride_in_bytes,
-                                  spc->v_oversample / 2);
-         #endif
+                                  spc->v_oversample / asdf);
 
             bc->x0       = (stbtt_int16)  r->x;
             bc->y0       = (stbtt_int16)  r->y;
