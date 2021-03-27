@@ -4,8 +4,8 @@ WARNINGS        = -Wno-padded -Wno-cast-align -Wno-unreachable-code -Wno-packed 
 
 COMMON_CFLAGS   = -Wall -O0 -g
 
-CC              := clang
-CXX             := clang++
+CC              ?= clang
+CXX             ?= clang++
 
 CFLAGS          = $(COMMON_CFLAGS) -std=c99 -fPIC -O3
 CXXFLAGS        = $(COMMON_CFLAGS) -Wno-old-style-cast -std=c++17 -fno-exceptions
@@ -15,8 +15,18 @@ CXXSRC          = $(shell find source -iname "*.cpp" -print)
 CXXOBJ          = $(CXXSRC:.cpp=.cpp.o)
 CXXDEPS         = $(CXXOBJ:.o=.d)
 
-OBJCSRC         = $(shell find source -iname "*.m" -print)
-OBJCOBJ         = $(OBJCSRC:.m=.m.o)
+
+ifeq ("$(shell uname)","Darwin")
+	OBJCSRC     = $(shell find source -iname "*.m" -print)
+	OBJCOBJ     = $(OBJCSRC:.m=.m.o)
+
+	SDL_LINK    = /usr/local/lib/libSDL2.a $(shell pkg-config --libs-only-other --static sdl2) -liconv
+else
+	OBJCSRC     =
+	OBJCOBJ     =
+
+	SDL_LINK    = $(shell pkg-config --libs sdl2) -ldl -lGL
+endif
 
 LIBS            = sdl2
 FRAMEWORKS      =
@@ -51,8 +61,7 @@ build: $(OUTPUT_BIN)
 
 $(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS) $(OBJCOBJ)
 	@echo "  $(notdir $@)"
-	@$(CXX) $(CXXFLAGS) $(WARNINGS) $(DEFINES) -Iexternal -o $@ $^  /usr/local/lib/libSDL2.a $(FRAMEWORKS) \
-		$(shell pkg-config --libs-only-other --static sdl2) -liconv
+	@$(CXX) $(CXXFLAGS) $(WARNINGS) $(DEFINES) -Iexternal -o $@ $^ $(SDL_LINK)
 
 %.cpp.o: %.cpp Makefile $(PRECOMP_GCH)
 	@echo "  $(notdir $<)"

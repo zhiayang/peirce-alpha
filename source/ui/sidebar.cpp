@@ -47,6 +47,9 @@ namespace ui
 		imgui::Text("asdf 9");
 		imgui::Text("asdf 10");
 
+		if(imgui::ImageButton(theme.textures.edit, lx::vec2(32, 32)))
+			ui::toggleEditing();
+
 
 		// since window borders are off, we draw the separator manually.
 		{
