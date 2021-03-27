@@ -272,7 +272,7 @@ namespace parser
 		else if(st.peek() == TT::Not)
 		{
 			st.pop();
-			return makeAST<ast::Not>(parseExpr(st));
+			return makeAST<ast::Not>(parseUnary(st));
 		}
 		else if(st.peek() == TT::Top)
 		{

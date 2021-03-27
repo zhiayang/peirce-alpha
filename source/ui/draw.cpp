@@ -20,9 +20,9 @@ namespace ui
 		return Graph({ Item::box({
 				Item::var("A"),
 				Item::box({
-					Item::var("B"),
-					Item::var("B"),
-					Item::var("B"),
+					// Item::var("B"),
+					// Item::var("B"),
+					// Item::var("B"),
 					Item::var("B"),
 					Item::box({
 						Item::var("C"),

@@ -69,18 +69,16 @@ namespace ui::alpha
 			auto r = make_item(a->right);
 
 			std::vector<Item*> ret;
-			for(auto i : l)
-				ret.push_back(i);
-
-			for(auto i : r)
-				ret.push_back(i);
+			ret.insert(ret.end(), l.begin(), l.end());
+			ret.insert(ret.end(), r.begin(), r.end());
 
 			return ret;
 		}
 		else if(auto l = dynamic_cast<Lit*>(expr))
 		{
-			// TODO: a nicer error message for this
-			lg::fatal("expr", "cannot use literal");
+			// false is an empty box, true is nothing.
+			if(l->value) return { };
+			else         return { Item::box({ }) };
 		}
 		else if(auto v = dynamic_cast<Var*>(expr))
 		{
@@ -99,6 +97,7 @@ namespace ui::alpha
 		auto t = transform(expr);
 		delete expr;
 
+		this->box.flags |= FLAG_ROOT;
 		this->box.subs = make_item(t);
 		for(auto child : this->box.subs)
 			child->parent = &this->box;
