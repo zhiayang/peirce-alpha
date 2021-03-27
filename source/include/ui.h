@@ -35,14 +35,41 @@ namespace ui
 	void draw();
 	void update();
 
+	void eraseItemFromParent(alpha::Item* item);
+
 	// takes in the ImGuiMouseCursor_ enum.
 	void setCursor(int cursor);
+	void setClipboard(alpha::Item* item);
+	alpha::Item* getSelected();
+	alpha::Item* getClipboard();
 
 	int getNextId();
 	void interact(lx::vec2 origin, alpha::Graph* graph);
 
 	void autoLayout(alpha::Graph* graph, double width);
 	void relayout(alpha::Graph* graph, alpha::Item* item);
+
+
+	struct Action
+	{
+		int type = 0;
+
+		// the thing that was either deleted, cut, or pasted
+		alpha::Item* item = 0;
+
+		// for reparenting actions
+		alpha::Item* oldParent = 0;
+		lx::vec2 oldPos = {};
+
+		static constexpr int DELETE     = 1;
+		static constexpr int CUT        = 2;
+		static constexpr int PASTE      = 3;
+		static constexpr int REPARENT   = 4;
+	};
+
+	void performAction(Action action);
+	void performUndo(alpha::Graph* graph);
+	void performRedo(alpha::Graph* graph);
 
 	Theme dark();
 	Theme light();

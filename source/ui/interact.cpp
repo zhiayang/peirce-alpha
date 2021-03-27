@@ -20,11 +20,9 @@ namespace ui
 
 	static void handle_drag(Graph* graph);
 	static void handle_reattach(Graph* graph);
-	static void erase_from_parent(Item* item);
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph);
 
-	static void handle_undo(Graph* graph);
-	static void handle_redo(Graph* graph);
+	// static void add_action(Graph*);
 
 	static bool is_char_pressed(char key);
 	static bool is_key_pressed(uint32_t scancode);
@@ -44,24 +42,6 @@ namespace ui
 		cb(item);
 	}
 
-	constexpr int ACTION_DELETE     = 1;
-	constexpr int ACTION_CUT        = 2;
-	constexpr int ACTION_PASTE      = 3;
-	constexpr int ACTION_REPARENT   = 4;
-	constexpr size_t MAX_ACTIONS    = 69;
-
-	struct Action
-	{
-		int type = 0;
-
-		// the thing that was either deleted, cut, or pasted
-		Item* item = 0;
-
-		// for reparenting actions
-		Item* oldParent = 0;
-		lx::vec2 oldPos = {};
-	};
-
 	static struct {
 		Item* selected = 0;
 		Item* dropTarget = 0;
@@ -69,17 +49,27 @@ namespace ui
 		int resizingEdge = 0;   // 1 = north, 2 = northeast, 3 = east, etc.
 
 		Item* clipboard = 0;
-
-		// 0 = past-the-end; 1 = last action, etc. for each undo index++, and
-		// for each redo index--.
-		size_t actionIndex = 0;
-		std::deque<Action> actions;
-
 		bool editing = false;
 	} state;
 
 	bool isEditing() { return state.editing; }
 	void toggleEditing() { state.editing ^= true; lg::log("ui", "editing = {}", state.editing); }
+
+	void setClipboard(alpha::Item* item)
+	{
+		state.clipboard = item;
+	}
+
+	alpha::Item* getSelected()
+	{
+		return state.selected;
+	}
+
+	alpha::Item* getClipboard()
+	{
+		return state.clipboard;
+	}
+
 
 	void interact(lx::vec2 origin, Graph* graph)
 	{
@@ -162,29 +152,15 @@ namespace ui
 		{
 			auto edge = state.resizingEdge;
 
-			if(edge == 2 || edge == 6)
-				ui::setCursor(ImGuiMouseCursor_ResizeNESW);
-
-			else if(edge == 4 || edge == 8)
-				ui::setCursor(ImGuiMouseCursor_ResizeNWSE);
-
-			else if(edge == 1 || edge == 5)
-				ui::setCursor(ImGuiMouseCursor_ResizeNS);
-
-			else if(edge == 3 || edge == 7)
-				ui::setCursor(ImGuiMouseCursor_ResizeEW);
-
-			else
-				ui::setCursor(ImGuiMouseCursor_Arrow);
+			if(edge == 2 || edge == 6)      ui::setCursor(ImGuiMouseCursor_ResizeNESW);
+			else if(edge == 4 || edge == 8) ui::setCursor(ImGuiMouseCursor_ResizeNWSE);
+			else if(edge == 1 || edge == 5) ui::setCursor(ImGuiMouseCursor_ResizeNS);
+			else if(edge == 3 || edge == 7) ui::setCursor(ImGuiMouseCursor_ResizeEW);
+			else                            ui::setCursor(ImGuiMouseCursor_Arrow);
 		}
 
 		if(imgui::IsMouseDragging(ImGuiMouseButton_Left))
 			handle_drag(graph);
-
-
-		// prune the actions;
-		while(state.actions.size() > MAX_ACTIONS)
-			state.actions.pop_back();
 	}
 
 
@@ -195,13 +171,13 @@ namespace ui
 	{
 		if(state.editing && state.selected != nullptr && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
 		{
-			state.actions.push_front(Action {
-				.type   = ACTION_DELETE,
+			ui::performAction(Action {
+				.type   = Action::DELETE,
 				.item   = state.selected
 			});
 
 			// first, remove it from its parent
-			erase_from_parent(state.selected);
+			eraseItemFromParent(state.selected);
 
 			// unselect it.
 			state.selected->flags &= ~FLAG_SELECTED;
@@ -216,12 +192,12 @@ namespace ui
 
 			if(state.editing && is_char_pressed('x'))
 			{
-				state.actions.push_front(Action {
-					.type = ACTION_CUT,
+				ui::performAction(Action {
+					.type = Action::CUT,
 					.item = state.selected
 				});
 
-				erase_from_parent(state.selected);
+				eraseItemFromParent(state.selected);
 				state.selected->flags &= ~FLAG_SELECTED;
 				state.selected = nullptr;
 			}
@@ -257,8 +233,8 @@ namespace ui
 				drop->subs.push_back(paste);
 			}
 
-			state.actions.push_front(Action {
-				.type = ACTION_PASTE,
+			ui::performAction(Action {
+				.type = Action::PASTE,
 				.item = paste
 			});
 
@@ -267,11 +243,11 @@ namespace ui
 		}
 		else if(is_char_pressed('z') && ((imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl) && !imgui::GetIO().KeyShift))
 		{
-			handle_undo(graph);
+			performUndo(graph);
 		}
 		else if(is_char_pressed('z') && ((imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl) && imgui::GetIO().KeyShift))
 		{
-			handle_redo(graph);
+			performRedo(graph);
 		}
 		else if(is_char_pressed('q') && (imgui::GetIO().KeyCtrl))
 		{
@@ -281,7 +257,7 @@ namespace ui
 	}
 
 
-	static void erase_from_parent(Item* item)
+	void eraseItemFromParent(Item* item)
 	{
 		auto parent = item->parent;
 		assert(parent != nullptr);
@@ -308,14 +284,14 @@ namespace ui
 		// ok, now drop it -- only if the parent didn't change.
 		if(item->parent != drop)
 		{
-			state.actions.push_front(Action {
-				.type       = ACTION_REPARENT,
+			ui::performAction(Action {
+				.type       = Action::REPARENT,
 				.item       = item,
 				.oldParent  = item->parent,
 				.oldPos     = item->pos,
 			});
 
-			erase_from_parent(item);
+			eraseItemFromParent(item);
 
 			// also, recalculate its position relative to its new parent.
 			auto old_abs_pos = compute_abs_pos(item);
@@ -405,91 +381,6 @@ namespace ui
 
 		imgui::ResetMouseDragDelta();
 	}
-
-
-	void handle_undo(Graph* graph)
-	{
-		// no more actions.
-		if(state.actionIndex >= state.actions.size())
-		{
-			lg::log("ui", "no more actions to undo");
-			return;
-		}
-
-		graph->flags |= FLAG_GRAPH_MODIFIED;
-		auto& action = state.actions[state.actionIndex++];
-		switch(action.type)
-		{
-			case ACTION_CUT:
-			case ACTION_DELETE:
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
-				break;
-
-			case ACTION_PASTE:
-				erase_from_parent(action.item);
-				break;
-
-			case ACTION_REPARENT:
-				// since we are undoing, the existing parent and positions are the new ones
-				erase_from_parent(action.item);
-				std::swap(action.item->parent, action.oldParent);
-				std::swap(action.item->pos, action.oldPos);
-
-				// the parent got swapped, so add it to the old parent.
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
-				break;
-
-			default:
-				lg::error("ui", "unknown action type '{}'", action.type);
-				break;
-		}
-	}
-
-	void handle_redo(Graph* graph)
-	{
-		// no more actions.
-		if(state.actionIndex == 0)
-		{
-			lg::log("ui", "no more actions to redo");
-			return;
-		}
-
-		graph->flags |= FLAG_GRAPH_MODIFIED;
-		auto& action = state.actions[state.actionIndex--];
-		switch(action.type)
-		{
-			case ACTION_CUT:
-				state.clipboard = action.item;
-				[[fallthrough]];
-
-			case ACTION_DELETE:
-				erase_from_parent(action.item);
-				break;
-
-			case ACTION_PASTE:
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
-				break;
-
-			case ACTION_REPARENT:
-				// since we are redoing, the existing parent and positions are the old ones
-				erase_from_parent(action.item);
-				std::swap(action.item->parent, action.oldParent);
-				std::swap(action.item->pos, action.oldPos);
-
-				// the parent got swapped, so add it to the new parent.
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
-				break;
-
-			default:
-				lg::error("ui", "unknown action type '{}'", action.type);
-				break;
-		}
-	}
-
 
 
 
