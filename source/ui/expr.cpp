@@ -100,7 +100,7 @@ namespace ui::alpha
 		this->box.flags |= FLAG_ROOT;
 		this->box.subs = make_item(t);
 		for(auto child : this->box.subs)
-			child->parent = &this->box;
+			child->setParent(&this->box);
 
 		this->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
 	}

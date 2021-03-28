@@ -57,8 +57,6 @@ namespace ui
 		}
 		imgui::PopStyleVar();
 
-
-		// since window borders are off, we draw the separator manually.
 		{
 			imgui::GetForegroundDrawList()->AddLine(
 				lx::vec2(geom.exprbar.pos.x, geom.exprbar.pos.y),
@@ -66,6 +64,7 @@ namespace ui
 				theme.foreground.u32(), /* thickness: */ 2.0
 			);
 		}
+
 
 		imgui::End();
 		imgui::PopStyleColor(2);

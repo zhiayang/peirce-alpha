@@ -46,6 +46,9 @@ namespace ui
 			.boxDetached        = colour::fromHexRGB(0x718c00),
 			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
 
+			.tooltipBg          = colour::fromHexRGB(0xe0e0e0),
+			.tooltipText        = colour::fromHexRGB(0x3d3d48),
+
 			.textures = {
 				.submit = (void*) (uintptr_t) resources.light.imgSubmit,
 				.edit = (void*) (uintptr_t) resources.light.imgEdit,
@@ -77,6 +80,9 @@ namespace ui
 
 			.boxDetached        = colour::fromHexRGB(0x718c00),
 			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
+
+			.tooltipBg          = colour::fromHexRGB(0x202020),
+			.tooltipText        = colour::fromHexRGB(0xc7ccd1),
 
 			.textures = {
 				.submit = (void*) (uintptr_t) resources.dark.imgSubmit,

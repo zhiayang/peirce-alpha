@@ -7,7 +7,7 @@
 
 namespace ui::geometry
 {
-	constexpr double SIDEBAR_MIN_WIDTH = 200;
+	constexpr double SIDEBAR_MIN_WIDTH = 220;
 	constexpr double SIDEBAR_MAX_WIDTH = 350;
 	constexpr double SIDEBAR_WIDTH_PERCENT = 0.22;
 

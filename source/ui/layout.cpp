@@ -58,7 +58,7 @@ namespace ui
 			for(size_t i = 0; i < item->subs.size(); i++)
 			{
 				auto_layout(st, cursor, item->subs[i]);
-				item->subs[i]->parent = item;
+				item->subs[i]->setParent(item);
 
 				cursor.x += item->subs[i]->size.x;
 
@@ -222,11 +222,11 @@ namespace ui
 			}
 		}
 
-		if(box->parent)
+		if(box->parent() != nullptr)
 		{
 			// if necessary, shove it with its siblings
-			shove(box, box->parent);
-			relayout(box->parent);
+			shove(box, box->parent());
+			relayout(box->parent());
 		}
 	}
 

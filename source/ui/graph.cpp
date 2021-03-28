@@ -80,7 +80,7 @@ namespace ui
 			if(!(item->flags & FLAG_ROOT))
 			{
 				dl->AddRect(origin + item->pos, origin + item->pos + item->size,
-					outlineColour.u32(), 0, 0, 2);
+					outlineColour.u32(), 3, 0, 2);
 			}
 
 			for(auto child : item->subs)

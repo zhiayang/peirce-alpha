@@ -63,10 +63,14 @@ namespace ui
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+		// glorious 16:10
+		constexpr int MIN_WIDTH = 880;
+		constexpr int MIN_HEIGHT = 550;
+
 		// setup the window
 		uiState.sdlWindow = SDL_CreateWindow(title.str().c_str(),
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-			720, 480, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+			MIN_WIDTH, MIN_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 
 		if(uiState.sdlWindow == nullptr)
 			lg::fatal("ui", "couldn't create SDL window: {}", SDL_GetError());
@@ -86,6 +90,8 @@ namespace ui
 
 		uiState.resizeCursorNWSE = create_sdl_system_cursor(SDL_SYSTEM_CURSOR_SIZENWSE);
 		uiState.resizeCursorNESW = create_sdl_system_cursor(SDL_SYSTEM_CURSOR_SIZENESW);
+
+		SDL_SetWindowMinimumSize(uiState.sdlWindow, MIN_WIDTH, MIN_HEIGHT);
 	}
 
 	void setup(double uiscale, double fontsize, Theme theme)
@@ -124,6 +130,7 @@ namespace ui
 
 			style.Colors[ImGuiCol_Text] = theme.foreground;
 			style.Colors[ImGuiCol_WindowBg] = theme.background;
+			style.Colors[ImGuiCol_PopupBg] = theme.tooltipBg;
 
 			style.Colors[ImGuiCol_ButtonActive] = theme.buttonClickedBg;
 			style.Colors[ImGuiCol_ButtonHovered] = theme.buttonHoverBg;
@@ -132,6 +139,9 @@ namespace ui
 			style.Colors[ImGuiCol_Button] = util::colour::fromHexRGBA(0);
 
 			style.WindowBorderSize = 0;
+			// style.AntiAliasedFill = false;
+			// style.AntiAliasedLines = false;
+			// style.AntiAliasedLinesUseTex = false;
 		}
 	}
 

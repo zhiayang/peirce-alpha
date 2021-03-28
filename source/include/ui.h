@@ -21,9 +21,14 @@ namespace ui
 	void stop();
 	void quit();
 
+	constexpr uint32_t TOOL_EDIT     = 0x1;
+	constexpr uint32_t TOOL_MOVE     = 0x2;
+	constexpr uint32_t TOOL_RESIZE   = 0x4;
 
-	bool isEditing();
-	void toggleEditing();
+	bool toolEnabled(uint32_t tool);
+	void disableTool(uint32_t tool);
+	void enableTool(uint32_t tool);
+	bool toggleTool(uint32_t tool);
 
 	// returns < 0 if we should quit, or else it returns the number of events processed.
 	int poll();
@@ -49,16 +54,25 @@ namespace ui
 
 	struct Selection
 	{
+		Selection() = default;
+
+		Selection(const Selection&) = delete;
+		Selection& operator= (Selection&) = delete;
+
 		bool empty() const;
 		size_t count() const;
-		bool allSiblings() const;
 		bool contains(alpha::Item* item) const;
 		const std::vector<alpha::Item*>& get() const;
 		const std::vector<alpha::Item*>& uniqueAncestors() const;
 
-		alpha::Item* const& operator[] (size_t i) const;
+		alpha::Item* const& operator[] (size_t i) const;;
+
+		// flag accessors
+		bool allSiblings() const { return this->flags & FLAG_ALL_SIBLINGS; }
+		bool allHaveDoubleCut() const { return this->flags & FLAG_ALL_HAVE_DOUBLE_CUT; }
 
 		void clear();
+		void refresh() const;
 		void set(alpha::Item* item);
 		void set(std::vector<alpha::Item*> items);
 
@@ -73,14 +87,13 @@ namespace ui
 		auto end() const   { return this->items.cend(); }
 
 	private:
-		uint32_t flags = 0;
 		std::vector<alpha::Item*> items;
-		std::vector<alpha::Item*> unique_ancestors;
+
+		mutable uint32_t flags = 0;
+		mutable std::vector<alpha::Item*> unique_ancestors;
 
 		uint32_t FLAG_ALL_SIBLINGS          = 1;
 		uint32_t FLAG_ALL_HAVE_DOUBLE_CUT   = 2;
-
-		void recalculate_flags();
 	};
 
 	const Selection& selection();
@@ -132,6 +145,9 @@ namespace ui
 
 		util::colour boxDetached;
 		util::colour boxDropTarget;
+
+		util::colour tooltipBg;
+		util::colour tooltipText;
 
 		struct {
 			void* submit;
@@ -218,13 +234,16 @@ namespace ui
 			lx::vec2 pos;
 			lx::vec2 size;
 			lx::vec2 content_offset;
-			Item* parent = 0;
 
 			// state tracking for the auto(re)-layout system
 			lx::vec2 min_pos;
 			lx::vec2 max_size;
 
 			uint32_t flags = 0;
+
+			int depth() const;
+			Item* parent() const;
+			void setParent(Item* p);
 
 			ast::Expr* expr() const;
 			Item* clone() const;
@@ -240,6 +259,9 @@ namespace ui
 			Item(const Item&) = default;
 
 			friend struct Graph;
+
+			Item* _parent = 0;
+			int cached_depth = 0;
 		};
 
 		// the top-level has special meaning (there is no box around it), so it
@@ -260,8 +282,8 @@ namespace ui
 		};
 
 		// inference rules
-		void insertDoubleCut(Graph* graph, Item* item);
-		void removeDoubleCut(Graph* graph, Item* item);
+		void insertDoubleCut(Graph* graph, const Selection& item);
+		void removeDoubleCut(Graph* graph, const Selection& item);
 
 		bool hasDoubleCut(Item* item);
 	}

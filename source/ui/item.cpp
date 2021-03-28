@@ -38,12 +38,35 @@ namespace ui::alpha
 		return foo;
 	}
 
+	int Item::depth() const
+	{
+		return this->cached_depth;
+	}
+
+	Item* Item::parent() const
+	{
+		return this->_parent;
+	}
+
+	void Item::setParent(Item* parent)
+	{
+		this->_parent = parent;
+
+		this->cached_depth = 0;
+		if(this->_parent == nullptr || this->_parent->flags & FLAG_ROOT)
+			return;
+
+		this->cached_depth = 1 + this->_parent->depth();
+	}
+
 	Item* Item::box(std::vector<Item*> items)
 	{
 		auto ret = new Item();
 		ret->name = zpr::sprint("__box_{}", ret->id);
 		ret->isBox = true;
 		ret->subs = std::move(items);
+		for(auto i : ret->subs)
+			i->setParent(ret);
 
 		return ret;
 	}

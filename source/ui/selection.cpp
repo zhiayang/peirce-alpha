@@ -18,11 +18,6 @@ namespace ui
 		return this->items.size();
 	}
 
-	bool Selection::allSiblings() const
-	{
-		return this->flags & FLAG_ALL_SIBLINGS;
-	}
-
 	const std::vector<Item*>& Selection::get() const
 	{
 		return this->items;
@@ -34,7 +29,7 @@ namespace ui
 			x->flags &= ~FLAG_SELECTED;
 
 		this->items.clear();
-		this->recalculate_flags();
+		this->refresh();
 	}
 
 	void Selection::add(Item* item)
@@ -44,14 +39,14 @@ namespace ui
 
 		item->flags |= FLAG_SELECTED;
 		this->items.push_back(item);
-		this->recalculate_flags();
+		this->refresh();
 	}
 
 	void Selection::remove(Item* item)
 	{
 		item->flags &= ~FLAG_SELECTED;
 		this->items.erase(std::remove(this->items.begin(), this->items.end(), item), this->items.end());
-		this->recalculate_flags();
+		this->refresh();
 	}
 
 	void Selection::set(Item* item)
@@ -72,7 +67,7 @@ namespace ui
 
 		this->clear();
 		this->items = std::move(items);
-		this->recalculate_flags();
+		this->refresh();
 	}
 
 	bool Selection::contains(Item* item) const
@@ -86,9 +81,32 @@ namespace ui
 		return this->items[i];
 	}
 
-	void Selection::recalculate_flags()
+	void Selection::refresh() const
 	{
-		// TODO: calculate the flags
+		this->flags = 0;
+
+		std::optional<Item*> common_parent;
+		bool all_have_double_cut = true;
+
+		for(auto item : this->items)
+		{
+			if(!common_parent || *common_parent == item->parent())
+				common_parent = item->parent();
+
+			else
+				common_parent = nullptr;
+
+			all_have_double_cut &= hasDoubleCut(item);
+		}
+
+		if(common_parent.has_value() && *common_parent != nullptr)
+			this->flags |= FLAG_ALL_SIBLINGS;
+
+		if(all_have_double_cut)
+			this->flags |= FLAG_ALL_HAVE_DOUBLE_CUT;
+
+
+
 
 		// recalculate the "unique ancestors". basically if you are selected and your parent is also
 		// selected, we don't care about you. this applies recursively.
@@ -96,13 +114,13 @@ namespace ui
 
 		for(auto x : this->items)
 		{
-			auto y = x->parent;
+			auto y = x->parent();
 			while(y)
 			{
 				if(y->flags & FLAG_SELECTED)
 					goto out;
 
-				y = y->parent;
+				y = y->parent();
 			}
 
 			this->unique_ancestors.push_back(x);

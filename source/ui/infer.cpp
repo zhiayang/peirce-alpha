@@ -8,36 +8,43 @@ namespace ui::alpha
 {
 	void insertDoubleCut(Graph* graph, const Selection& sel)
 	{
-		// if(item == nullptr)
-		// 	return;
-
-		// // this one is pretty simple.
-		// eraseItemFromParent(item);
-
-		// auto p = Item::box({ item });
-		// auto gp = Item::box({ p });
-
-
-	}
-
-	void removeDoubleCut(Graph* graph, Item* item)
-	{
-		if(item == nullptr)
+		if(sel.empty() || !sel.allSiblings())
 			return;
 
-		// it's a pretty cheap check, so it should be fine.
-		assert(hasDoubleCut(item));
+		for(auto item : sel)
+			eraseItemFromParent(item);
+
+		auto oldp = sel[0]->parent();
+
+		auto p = Item::box(sel.get());  // box() sets the parent of the stuff automatically
+		auto gp = Item::box({ p });     // (which is also why we need to cache the old parent)
+		p->setParent(gp);
+
+		oldp->subs.push_back(gp);
+		gp->setParent(oldp);
+
+		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
+		sel.refresh();
+	}
+
+	void removeDoubleCut(Graph* graph, const Selection& sel)
+	{
+		// we only operate on the first one! every other item selected must be a sibling.
+		if(sel.empty() || !hasDoubleCut(sel[0]) || !sel.allSiblings())
+			return;
+
+		auto item = sel[0];
 
 		// basically, get the great grandparent, and reparent the item (and all its siblings)
 		// to the great grandparent instead.
-		auto p = item->parent;
-		auto gp = p->parent;
-		auto ggp = gp->parent;
+		auto p = item->parent();
+		auto gp = p->parent();
+		auto ggp = gp->parent();
 
 		for(auto sibling : p->subs)
 		{
 			eraseItemFromParent(sibling);
-			sibling->parent = ggp;
+			sibling->setParent(ggp);
 
 			ggp->subs.push_back(sibling);
 		}
@@ -48,6 +55,7 @@ namespace ui::alpha
 		eraseItemFromParent(gp);
 
 		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
+		sel.refresh();
 	}
 
 
@@ -58,10 +66,10 @@ namespace ui::alpha
 			return false;
 
 		// first check that it has a grandparent:
-		auto p = item->parent;
+		auto p = item->parent();
 		if(!p || !p->isBox) return false;
 
-		auto gp = p->parent;
+		auto gp = p->parent();
 		if(!gp || !gp->isBox || gp->flags & FLAG_ROOT) return false;
 
 		// check that the grandparent has the parent as its only child

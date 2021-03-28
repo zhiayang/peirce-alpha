@@ -28,6 +28,7 @@ namespace ui
 	static bool is_key_pressed(uint32_t scancode);
 
 	static bool has_cmd();
+	static bool has_alt();
 	static bool has_ctrl();
 	static bool has_shift();
 
@@ -53,11 +54,14 @@ namespace ui
 		int resizingEdge = 0;   // 1 = north, 2 = northeast, 3 = east, etc.
 
 		std::vector<Item*> clipboard;
-		bool editing = false;
+		uint32_t tools = 0;
 	} state;
 
-	bool isEditing() { return state.editing; }
-	void toggleEditing() { state.editing ^= true; lg::log("ui", "editing = {}", state.editing); }
+	bool toolEnabled(uint32_t tool) { return state.tools & tool; }
+	void disableTool(uint32_t tool) { state.tools &= ~tool; }
+	void enableTool(uint32_t tool)  { state.tools |= tool; }
+	bool toggleTool(uint32_t tool)  { state.tools ^= tool; return state.tools & tool; }
+	const Selection& selection()    { return state.selection; }
 
 	void setClipboard(std::vector<alpha::Item*> items)
 	{
@@ -106,7 +110,7 @@ namespace ui
 
 		// note: handle selected things first, so that if something is deleted in this frame,
 		// the cursor doesn't lag for one frame.
-		if(state.selection.count() == 1 && state.editing)
+		if(state.selection.count() == 1 && toolEnabled(TOOL_EDIT))
 		{
 			bool was_detached = (state.selection[0]->flags & FLAG_DETACHED);
 			if(was_detached)
@@ -123,12 +127,12 @@ namespace ui
 					drop->flags |= FLAG_DROP_TARGET;
 			}
 
-			if(was_detached && (!has_shift()                        // if you released the shift key
+			if(was_detached && (!has_alt()                          // if you released the shift key
 				|| imgui::IsMouseReleased(ImGuiMouseButton_Left)))  // or you released the mouse
 			{
 				handle_reattach(graph);
 			}
-			else if((!was_detached && has_shift())                  // if you pressed the shift key
+			else if((!was_detached && has_alt())                    // if you pressed the shift key
 				&& (imgui::IsMouseDown(ImGuiMouseButton_Left)       // and either the mouse is down
 				|| imgui::IsMouseDragging(ImGuiMouseButton_Left)))  // or you are dragging it
 			{
@@ -143,8 +147,10 @@ namespace ui
 			state.resizingEdge = 0;
 
 		// if the mouse is already clicked, then don't change the cursor halfway!
-		if(auto edge = get_resize_edge(mouse, &graph->box); edge != 0 && state.selection.count() <= 1 &&
-			!imgui::IsMouseDown(ImGuiMouseButton_Left))
+		if(auto edge = get_resize_edge(mouse, &graph->box); edge != 0
+			&& toolEnabled(TOOL_RESIZE)
+			&& state.selection.count() <= 1
+			&& !imgui::IsMouseDown(ImGuiMouseButton_Left))
 		{
 			state.resizingEdge = edge;
 		}
@@ -170,7 +176,7 @@ namespace ui
 
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
 	{
-		if(state.editing && !state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
+		if(toolEnabled(TOOL_EDIT) && !state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
 		{
 			ui::performAction(Action {
 				.type   = Action::DELETE,
@@ -186,11 +192,15 @@ namespace ui
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
+		else if(is_key_pressed(SDL_SCANCODE_ESCAPE))
+		{
+			state.selection.clear();
+		}
 		else if(!state.selection.empty() && (is_char_pressed('x') || is_char_pressed('c')) && (has_cmd() || has_ctrl()))
 		{
 			state.clipboard = state.selection.get();
 
-			if(state.editing && is_char_pressed('x'))
+			if(toolEnabled(TOOL_EDIT) && is_char_pressed('x'))
 			{
 				ui::performAction(Action {
 					.type  = Action::CUT,
@@ -205,7 +215,7 @@ namespace ui
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
-		else if(state.editing && is_char_pressed('v') && (has_cmd() || has_ctrl()))
+		else if(toolEnabled(TOOL_EDIT) && is_char_pressed('v') && (has_cmd() || has_ctrl()))
 		{
 			// if you have more than one thing selected, idk where tf to paste to, so i won't.
 			if(state.selection.count() > 1)
@@ -223,10 +233,10 @@ namespace ui
 
 				for(auto x : clones)
 				{
-					if(x->parent != foster)
+					if(x->parent() != foster)
 						x->pos = lx::vec2(0, 0);
 
-					x->parent = foster;
+					x->setParent(foster);
 				}
 			}
 			else
@@ -241,7 +251,7 @@ namespace ui
 				for(auto clone : clones)
 				{
 					clone->pos = mouse - drop_abs_pos - drop->content_offset;
-					clone->parent = drop;
+					clone->setParent(drop);
 
 					drop->subs.push_back(clone);
 				}
@@ -278,7 +288,7 @@ namespace ui
 
 	void eraseItemFromParent(Item* item)
 	{
-		auto parent = item->parent;
+		auto parent = item->parent();
 		assert(parent != nullptr);
 
 		auto it = std::find(parent->subs.begin(), parent->subs.end(), item);
@@ -303,12 +313,12 @@ namespace ui
 		drop->flags &= ~FLAG_DROP_TARGET;
 
 		// ok, now drop it -- only if the parent didn't change.
-		if(item->parent != drop)
+		if(item->parent() != drop)
 		{
 			ui::performAction(Action {
 				.type       = Action::REPARENT,
 				.items      = { item },
-				.oldParent  = item->parent,
+				.oldParent  = item->parent(),
 				.oldPos     = item->pos,
 			});
 
@@ -322,7 +332,7 @@ namespace ui
 
 			// and insert it into the new parent.
 			drop->subs.push_back(item);
-			item->parent = drop;
+			item->setParent(drop);
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
@@ -338,7 +348,9 @@ namespace ui
 			return;
 
 		lx::vec2 delta = imgui::GetMouseDragDelta();
-		if(state.resizingEdge == 0)
+		imgui::ResetMouseDragDelta();
+
+		if(state.resizingEdge == 0 && toolEnabled(TOOL_MOVE))
 		{
 			// just move it graphically. relayout() handles shoving etc, but the item being moved
 			// will stay in its current 'box' -- so the semantic meaning of the graph is preserved.
@@ -348,7 +360,7 @@ namespace ui
 				ui::relayout(graph, sel);
 			}
 		}
-		else
+		else if(toolEnabled(TOOL_RESIZE))
 		{
 			assert(state.selection.count() == 1);
 
@@ -402,8 +414,6 @@ namespace ui
 
 			ui::relayout(graph, item);
 		}
-
-		imgui::ResetMouseDragDelta();
 	}
 
 
@@ -422,10 +432,10 @@ namespace ui
 		if(!item)
 			return lx::vec2(0, 0);
 
-		if(!item->parent)
+		if(item->parent() == nullptr)
 			return item->pos;
 
-		return compute_abs_pos(item->parent) + item->parent->content_offset + item->pos;
+		return compute_abs_pos(item->parent()) + item->parent()->content_offset + item->pos;
 	}
 
 	static Item* hit_test(const lx::vec2& hit, Item* item, bool only_boxes, Item* ignoring)
@@ -523,6 +533,7 @@ namespace ui
 	}
 
 	static bool has_cmd()   { return imgui::GetIO().KeySuper; }
+	static bool has_alt()   { return imgui::GetIO().KeyAlt; }
 	static bool has_ctrl()  { return imgui::GetIO().KeyCtrl; }
 	static bool has_shift() { return imgui::GetIO().KeyShift; }
 }
