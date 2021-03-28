@@ -27,6 +27,7 @@ namespace ui
 		double fps;
 		double frametime;
 
+		ImFont* mainFont;
 		ImFont* smallFont;
 
 		SDL_Cursor* resizeCursorNESW = 0;
@@ -99,9 +100,17 @@ namespace ui
 			config.OversampleH = 4;
 		}
 
-		io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", fontsize, &config, 0);
-		uiState.smallFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", 12, &config, 0);
+		uiState.mainFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", fontsize, &config, 0);
 
+		const ImWchar icons_ranges[] = { 0xf000, 0xf8ff, 0 };
+
+		auto iconConf = config;
+		iconConf.MergeMode = true;
+		iconConf.GlyphMinAdvanceX = 1.5 * fontsize;
+		iconConf.GlyphMaxAdvanceX = 1.5 * fontsize;
+		io.Fonts->AddFontFromFileTTF("assets/font-awesome-pro-regular.otf", fontsize - 2, &iconConf, icons_ranges);
+
+		uiState.smallFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", 12, &config, 0);
 		io.Fonts->Build();
 
 		uiState.theme = std::move(theme);

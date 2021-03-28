@@ -89,12 +89,12 @@ namespace ui
 		else
 		{
 			dl->AddText(origin + item->pos + item->content_offset,
-				theme.foreground.u32(), item->name.c_str());
+				outlineColour.u32(), item->name.c_str());
 
-			if(item->flags & (FLAG_SELECTED | FLAG_MOUSE_HOVER))
+			// if(item->flags & (FLAG_SELECTED | FLAG_MOUSE_HOVER))
 			{
 				dl->AddRect(origin + item->pos, origin + item->pos + item->size,
-					outlineColour.u32(), 0, 0, 2);
+					util::colour::blue().u32(), 0, 0, 1);
 			}
 		}
 	}

@@ -16,7 +16,6 @@ namespace ui
 	namespace alpha { struct Graph; struct Item; }
 	struct Theme;
 
-
 	void init(zbuf::str_view title);
 	void setup(double uiscale, double fontsize, Theme theme);
 	void stop();
@@ -39,9 +38,8 @@ namespace ui
 
 	// takes in the ImGuiMouseCursor_ enum.
 	void setCursor(int cursor);
-	void setClipboard(alpha::Item* item);
-	alpha::Item* getSelected();
-	alpha::Item* getClipboard();
+	std::vector<alpha::Item*> getClipboard();
+	void setClipboard(std::vector<alpha::Item*> item);
 
 	int getNextId();
 	void interact(lx::vec2 origin, alpha::Graph* graph);
@@ -49,13 +47,53 @@ namespace ui
 	void autoLayout(alpha::Graph* graph, double width);
 	void relayout(alpha::Graph* graph, alpha::Item* item);
 
+	struct Selection
+	{
+		bool empty() const;
+		size_t count() const;
+		bool allSiblings() const;
+		bool contains(alpha::Item* item) const;
+		const std::vector<alpha::Item*>& get() const;
+		const std::vector<alpha::Item*>& uniqueAncestors() const;
+
+		alpha::Item* const& operator[] (size_t i) const;
+
+		void clear();
+		void set(alpha::Item* item);
+		void set(std::vector<alpha::Item*> items);
+
+		void add(alpha::Item* item);
+		void remove(alpha::Item* item);
+		void toggle(alpha::Item* item);
+
+		auto begin()       { return this->items.begin(); }
+		auto end()         { return this->items.end(); }
+
+		auto begin() const { return this->items.cbegin(); }
+		auto end() const   { return this->items.cend(); }
+
+	private:
+		uint32_t flags = 0;
+		std::vector<alpha::Item*> items;
+		std::vector<alpha::Item*> unique_ancestors;
+
+		uint32_t FLAG_ALL_SIBLINGS          = 1;
+		uint32_t FLAG_ALL_HAVE_DOUBLE_CUT   = 2;
+
+		void recalculate_flags();
+	};
+
+	const Selection& selection();
+
+	alpha::Item* getSelected();
+
 
 	struct Action
 	{
 		int type = 0;
 
 		// the thing that was either deleted, cut, or pasted
-		alpha::Item* item = 0;
+		std::vector<alpha::Item*> items;
 
 		// for reparenting actions
 		alpha::Item* oldParent = 0;
@@ -86,6 +124,9 @@ namespace ui
 		util::colour buttonHoverBg;
 		util::colour buttonClickedBg;
 
+		util::colour buttonHoverBg2;
+		util::colour buttonClickedBg2;
+
 		util::colour boxSelection;
 		util::colour boxHover;
 
@@ -96,6 +137,32 @@ namespace ui
 			void* submit;
 			void* edit;
 		} textures;
+	};
+
+	struct Styler
+	{
+		Styler() { }
+		~Styler();
+
+		Styler(const Styler&) = delete;
+		Styler& operator= (const Styler&) = delete;
+
+		Styler(Styler&& s);
+		Styler& operator= (Styler&& s);
+
+		Styler& push(int x, const util::colour& colour);
+		Styler& push(int x, const lx::vec2& vec);
+		Styler& push(int x, double value);
+		Styler& push(int x, float value);
+		Styler& push(int x, int value);
+		Styler& push(int x, bool flag);
+
+		void pop();
+
+	private:
+		int vars = 0;
+		int flags = 0;
+		int colours = 0;
 	};
 
 	namespace geometry
@@ -191,5 +258,11 @@ namespace ui
 			Graph(const Graph&) = delete;
 			Graph& operator= (const Graph&) = delete;
 		};
+
+		// inference rules
+		void insertDoubleCut(Graph* graph, Item* item);
+		void removeDoubleCut(Graph* graph, Item* item);
+
+		bool hasDoubleCut(Item* item);
 	}
 }

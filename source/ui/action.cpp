@@ -22,6 +22,7 @@ namespace ui
 
 	void performAction(Action action)
 	{
+		// discard the rest of actions
 		while(state.actionIndex > 0)
 			state.actionIndex--, state.actions.pop_front();
 
@@ -48,23 +49,29 @@ namespace ui
 		{
 			case Action::CUT:
 			case Action::DELETE:
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
+				for(auto item : action.items)
+				{
+					item->parent->subs.push_back(item);
+					ui::relayout(graph, item);
+				}
 				break;
 
 			case Action::PASTE:
-				ui::eraseItemFromParent(action.item);
+				for(auto item : action.items)
+					ui::eraseItemFromParent(item);
 				break;
 
 			case Action::REPARENT:
+				assert(action.items.size() == 1);
+
 				// since we are undoing, the existing parent and positions are the new ones
-				ui::eraseItemFromParent(action.item);
-				std::swap(action.item->parent, action.oldParent);
-				std::swap(action.item->pos, action.oldPos);
+				ui::eraseItemFromParent(action.items[0]);
+				std::swap(action.items[0]->parent, action.oldParent);
+				std::swap(action.items[0]->pos, action.oldPos);
 
 				// the parent got swapped, so add it to the old parent.
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
+				action.items[0]->parent->subs.push_back(action.items[0]);
+				ui::relayout(graph, action.items[0]);
 				break;
 
 			default:
@@ -87,27 +94,33 @@ namespace ui
 		switch(action.type)
 		{
 			case Action::CUT:
-				ui::setClipboard(action.item);
+				ui::setClipboard(action.items);
 				[[fallthrough]];
 
 			case Action::DELETE:
-				ui::eraseItemFromParent(action.item);
+				for(auto item : action.items)
+					ui::eraseItemFromParent(item);
 				break;
 
 			case Action::PASTE:
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
+				for(auto item : action.items)
+				{
+					item->parent->subs.push_back(item);
+					ui::relayout(graph, item);
+				}
 				break;
 
 			case Action::REPARENT:
+				assert(action.items.size() == 1);
+
 				// since we are redoing, the existing parent and positions are the old ones
-				ui::eraseItemFromParent(action.item);
-				std::swap(action.item->parent, action.oldParent);
-				std::swap(action.item->pos, action.oldPos);
+				ui::eraseItemFromParent(action.items[0]);
+				std::swap(action.items[0]->parent, action.oldParent);
+				std::swap(action.items[0]->pos, action.oldPos);
 
 				// the parent got swapped, so add it to the new parent.
-				action.item->parent->subs.push_back(action.item);
-				ui::relayout(graph, action.item);
+				action.items[0]->parent->subs.push_back(action.items[0]);
+				ui::relayout(graph, action.items[0]);
 				break;
 
 			default:

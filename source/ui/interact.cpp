@@ -27,6 +27,10 @@ namespace ui
 	static bool is_char_pressed(char key);
 	static bool is_key_pressed(uint32_t scancode);
 
+	static bool has_cmd();
+	static bool has_ctrl();
+	static bool has_shift();
+
 	static lx::vec2 compute_abs_pos(Item* item);
 
 
@@ -43,33 +47,27 @@ namespace ui
 	}
 
 	static struct {
-		Item* selected = 0;
+		Selection selection;
 		Item* dropTarget = 0;
 
 		int resizingEdge = 0;   // 1 = north, 2 = northeast, 3 = east, etc.
 
-		Item* clipboard = 0;
+		std::vector<Item*> clipboard;
 		bool editing = false;
 	} state;
 
 	bool isEditing() { return state.editing; }
 	void toggleEditing() { state.editing ^= true; lg::log("ui", "editing = {}", state.editing); }
 
-	void setClipboard(alpha::Item* item)
+	void setClipboard(std::vector<alpha::Item*> items)
 	{
-		state.clipboard = item;
+		state.clipboard = std::move(items);
 	}
 
-	alpha::Item* getSelected()
-	{
-		return state.selected;
-	}
-
-	alpha::Item* getClipboard()
+	std::vector<alpha::Item*> getClipboard()
 	{
 		return state.clipboard;
 	}
-
 
 	void interact(lx::vec2 origin, Graph* graph)
 	{
@@ -80,18 +78,18 @@ namespace ui
 
 		if(imgui::IsMouseClicked(ImGuiMouseButton_Left))
 		{
-			// deselect everything
-			for_each_item(&graph->box, [](auto item) { item->flags &= ~FLAG_SELECTED; });
-
 			if(auto hit = hit_test(mouse, &graph->box, /* only_boxes: */ false);
 				hit != nullptr && !(hit->flags & FLAG_ROOT))
 			{
-				hit->flags |= FLAG_SELECTED;
-				state.selected = hit;
+				if(has_shift())
+					state.selection.toggle(hit);    // add
+
+				else if(!state.selection.contains(hit))
+					state.selection.set(hit);       // set (ie. remove everything else)
 			}
-			else
+			else if(!has_shift())
 			{
-				state.selected = nullptr;
+				state.selection.clear();
 			}
 		}
 
@@ -108,9 +106,9 @@ namespace ui
 
 		// note: handle selected things first, so that if something is deleted in this frame,
 		// the cursor doesn't lag for one frame.
-		if(state.selected != nullptr && state.editing)
+		if(state.selection.count() == 1 && state.editing)
 		{
-			bool was_detached = (state.selected->flags & FLAG_DETACHED);
+			bool was_detached = (state.selection[0]->flags & FLAG_DETACHED);
 			if(was_detached)
 			{
 				// unset the old one first.
@@ -119,23 +117,23 @@ namespace ui
 
 				// since the mouse is most likely going to be over the thing we just selected,
 				// we have to ignore it so that it doesn't become its own drop target.
-				auto drop = hit_test(mouse, &graph->box, /* only_boxes: */ true, /* ignoring: */ state.selected);
+				auto drop = hit_test(mouse, &graph->box, /* only_boxes: */ true, /* ignoring: */ state.selection[0]);
 				state.dropTarget = drop;
 				if(drop != nullptr)
 					drop->flags |= FLAG_DROP_TARGET;
 			}
 
-			if(was_detached && (!imgui::GetIO().KeyShift            // if you released the shift key
+			if(was_detached && (!has_shift()                        // if you released the shift key
 				|| imgui::IsMouseReleased(ImGuiMouseButton_Left)))  // or you released the mouse
 			{
 				handle_reattach(graph);
 			}
-			else if((!was_detached && imgui::GetIO().KeyShift)      // if you pressed the shift key
+			else if((!was_detached && has_shift())                  // if you pressed the shift key
 				&& (imgui::IsMouseDown(ImGuiMouseButton_Left)       // and either the mouse is down
 				|| imgui::IsMouseDragging(ImGuiMouseButton_Left)))  // or you are dragging it
 			{
 				// detach it
-				state.selected->flags |= FLAG_DETACHED;
+				state.selection[0]->flags |= FLAG_DETACHED;
 			}
 		}
 
@@ -145,8 +143,11 @@ namespace ui
 			state.resizingEdge = 0;
 
 		// if the mouse is already clicked, then don't change the cursor halfway!
-		if(auto edge = get_resize_edge(mouse, &graph->box); edge != 0 && !imgui::IsMouseDown(ImGuiMouseButton_Left))
+		if(auto edge = get_resize_edge(mouse, &graph->box); edge != 0 && state.selection.count() <= 1 &&
+			!imgui::IsMouseDown(ImGuiMouseButton_Left))
+		{
 			state.resizingEdge = edge;
+		}
 
 		// imgui resets the cursor each frame, so we must re-set the cursor each frame.
 		{
@@ -169,55 +170,64 @@ namespace ui
 
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
 	{
-		if(state.editing && state.selected != nullptr && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
+		if(state.editing && !state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
 		{
 			ui::performAction(Action {
 				.type   = Action::DELETE,
-				.item   = state.selected
+				.items  = state.selection.get()
 			});
 
 			// first, remove it from its parent
-			eraseItemFromParent(state.selected);
+			for(auto x : state.selection)
+				eraseItemFromParent(x);
 
 			// unselect it.
-			state.selected->flags &= ~FLAG_SELECTED;
-			state.selected = nullptr;
+			state.selection.clear();
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
-		else if(state.selected != nullptr && (is_char_pressed('x') || is_char_pressed('c'))
-			&& (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
+		else if(!state.selection.empty() && (is_char_pressed('x') || is_char_pressed('c')) && (has_cmd() || has_ctrl()))
 		{
-			state.clipboard = state.selected;
+			state.clipboard = state.selection.get();
 
 			if(state.editing && is_char_pressed('x'))
 			{
 				ui::performAction(Action {
-					.type = Action::CUT,
-					.item = state.selected
+					.type  = Action::CUT,
+					.items = state.selection.get()
 				});
 
-				eraseItemFromParent(state.selected);
-				state.selected->flags &= ~FLAG_SELECTED;
-				state.selected = nullptr;
+				for(auto x : state.selection)
+					eraseItemFromParent(x);
+
+				state.selection.clear();
 			}
 
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
-		else if(state.editing && is_char_pressed('v') && (imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl))
+		else if(state.editing && is_char_pressed('v') && (has_cmd() || has_ctrl()))
 		{
-			auto paste = state.clipboard->clone();
+			// if you have more than one thing selected, idk where tf to paste to, so i won't.
+			if(state.selection.count() > 1)
+				return;
+
+			std::vector<Item*> clones;
+			for(auto x : state.clipboard)
+				clones.push_back(x->clone());
 
 			// if there's something selected (and it's a box), paste it inside
-			if(state.selected != nullptr && state.selected->isBox)
+			if(!state.selection.empty() && state.selection[0]->isBox)
 			{
-				state.selected->subs.push_back(paste);
+				auto foster = state.selection[0];
+				foster->subs.insert(foster->subs.end(), clones.begin(), clones.end());
 
-				// if the parent changed, then move it to a sensible location (ie. [0, 0])
-				if(paste->parent != state.selected)
-					paste->pos = lx::vec2(0, 0);
+				for(auto x : clones)
+				{
+					if(x->parent != foster)
+						x->pos = lx::vec2(0, 0);
 
-				paste->parent = state.selected;
+					x->parent = foster;
+				}
 			}
 			else
 			{
@@ -227,29 +237,38 @@ namespace ui
 					drop = &graph->box;
 
 				auto drop_abs_pos = compute_abs_pos(drop);
-				paste->pos = mouse - drop_abs_pos - drop->content_offset;
 
-				paste->parent = drop;
-				drop->subs.push_back(paste);
+				for(auto clone : clones)
+				{
+					clone->pos = mouse - drop_abs_pos - drop->content_offset;
+					clone->parent = drop;
+
+					drop->subs.push_back(clone);
+				}
 			}
 
 			ui::performAction(Action {
-				.type = Action::PASTE,
-				.item = paste
+				.type  = Action::PASTE,
+				.items = clones
 			});
 
-			relayout(graph, paste);
+			for(auto x : clones)
+			{
+				x->flags &= ~FLAG_SELECTED;
+				relayout(graph, x);
+			}
+
 			graph->flags |= FLAG_GRAPH_MODIFIED;
 		}
-		else if(is_char_pressed('z') && ((imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl) && !imgui::GetIO().KeyShift))
+		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && !has_shift()))
 		{
 			performUndo(graph);
 		}
-		else if(is_char_pressed('z') && ((imgui::GetIO().KeySuper || imgui::GetIO().KeyCtrl) && imgui::GetIO().KeyShift))
+		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && has_shift()))
 		{
 			performRedo(graph);
 		}
-		else if(is_char_pressed('q') && (imgui::GetIO().KeyCtrl))
+		else if(is_char_pressed('q') && (has_ctrl()))
 		{
 			lg::log("ui", "quitting");
 			ui::quit();
@@ -269,7 +288,9 @@ namespace ui
 
 	static void handle_reattach(Graph* graph)
 	{
-		auto item = state.selected;
+		assert(state.selection.count() == 1);
+
+		auto item = state.selection[0];
 
 		// reattach it
 		item->flags &= ~FLAG_DETACHED;
@@ -286,7 +307,7 @@ namespace ui
 		{
 			ui::performAction(Action {
 				.type       = Action::REPARENT,
-				.item       = item,
+				.items      = { item },
 				.oldParent  = item->parent,
 				.oldPos     = item->pos,
 			});
@@ -313,7 +334,7 @@ namespace ui
 
 	static void handle_drag(Graph* graph)
 	{
-		if(state.selected == nullptr)
+		if(state.selection.empty())
 			return;
 
 		lx::vec2 delta = imgui::GetMouseDragDelta();
@@ -321,14 +342,17 @@ namespace ui
 		{
 			// just move it graphically. relayout() handles shoving etc, but the item being moved
 			// will stay in its current 'box' -- so the semantic meaning of the graph is preserved.
-			state.selected->pos += delta;
-
-			// follow the chain up and relayout all of them.
-			ui::relayout(graph, state.selected);
+			for(auto sel : state.selection.uniqueAncestors())
+			{
+				sel->pos += delta;
+				ui::relayout(graph, sel);
+			}
 		}
 		else
 		{
-			auto item = state.selected;
+			assert(state.selection.count() == 1);
+
+			auto item = state.selection[0];
 			switch(state.resizingEdge)
 			{
 				case 1: // top
@@ -376,11 +400,12 @@ namespace ui
 					break;
 			}
 
-			ui::relayout(graph, state.selected);
+			ui::relayout(graph, item);
 		}
 
 		imgui::ResetMouseDragDelta();
 	}
+
 
 
 
@@ -496,4 +521,8 @@ namespace ui
 	{
 		return imgui::IsKeyPressed(scancode);
 	}
+
+	static bool has_cmd()   { return imgui::GetIO().KeySuper; }
+	static bool has_ctrl()  { return imgui::GetIO().KeyCtrl; }
+	static bool has_shift() { return imgui::GetIO().KeyShift; }
 }

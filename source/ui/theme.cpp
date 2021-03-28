@@ -3,6 +3,10 @@
 // Licensed under the Apache License Version 2.0.
 
 #include "ui.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
+
+namespace imgui = ImGui;
 
 namespace ui
 {
@@ -24,20 +28,23 @@ namespace ui
 
 		using colour = util::colour;
 		return Theme {
-			.foreground = colour::fromHexRGB(0x3d3d48),
-			.background = colour::fromHexRGB(0xf8f8f4),
+			.foreground         = colour::fromHexRGB(0x3d3d48),
+			.background         = colour::fromHexRGB(0xf8f8f4),
 
-			.sidebarBg = colour::fromHexRGB(0xf6f6f6),
-			.exprbarBg = colour::fromHexRGB(0xebebeb),
+			.sidebarBg          = colour::fromHexRGB(0xf6f6f6),
+			.exprbarBg          = colour::fromHexRGB(0xebebeb),
 
-			.buttonHoverBg   = colour::fromHexRGB(0xb8b8b8),
-			.buttonClickedBg = colour::fromHexRGB(0x8f62ac),
+			.buttonHoverBg      = colour::fromHexRGB(0xb8b8b8),
+			.buttonClickedBg    = colour::fromHexRGB(0xbe93d9),
 
-			.boxSelection = colour::fromHexRGB(0xd64754),
-			.boxHover = colour::fromHexRGB(0xf2b8bd),
+			.buttonHoverBg2     = colour::fromHexRGB(0x787878),
+			.buttonClickedBg2   = colour::fromHexRGB(0x8494d1),
 
-			.boxDetached = colour::fromHexRGB(0x718c00),
-			.boxDropTarget = colour::fromHexRGB(0x4271ae),
+			.boxSelection       = colour::fromHexRGB(0xd64754),
+			.boxHover           = colour::fromHexRGB(0xf2b8bd),
+
+			.boxDetached        = colour::fromHexRGB(0x718c00),
+			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
 
 			.textures = {
 				.submit = (void*) (uintptr_t) resources.light.imgSubmit,
@@ -53,20 +60,23 @@ namespace ui
 
 		using colour = util::colour;
 		return Theme {
-			.foreground = colour::fromHexRGB(0xc7ccd1),
-			.background = colour::fromHexRGB(0x171717),
+			.foreground         = colour::fromHexRGB(0xc7ccd1),
+			.background         = colour::fromHexRGB(0x171717),
 
-			.sidebarBg = colour::fromHexRGB(0x252525),
-			.exprbarBg = colour::fromHexRGB(0x252525),
+			.sidebarBg          = colour::fromHexRGB(0x252525),
+			.exprbarBg          = colour::fromHexRGB(0x252525),
 
-			.buttonHoverBg   = colour::fromHexRGB(0x787878),
-			.buttonClickedBg = colour::fromHexRGB(0x8f62ac),
+			.buttonHoverBg      = colour::fromHexRGB(0x787878),
+			.buttonClickedBg    = colour::fromHexRGB(0x8f62ac),
 
-			.boxSelection = colour::fromHexRGB(0xf0717d),
-			.boxHover = colour::fromHexRGB(0xf2b8bd),
+			.buttonHoverBg2     = colour::fromHexRGB(0xb8b8b8),
+			.buttonClickedBg2   = colour::fromHexRGB(0x6272ac),
 
-			.boxDetached = colour::fromHexRGB(0x718c00),
-			.boxDropTarget = colour::fromHexRGB(0x4271ae),
+			.boxSelection       = colour::fromHexRGB(0xf0717d),
+			.boxHover           = colour::fromHexRGB(0xf2b8bd),
+
+			.boxDetached        = colour::fromHexRGB(0x718c00),
+			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
 
 			.textures = {
 				.submit = (void*) (uintptr_t) resources.dark.imgSubmit,
@@ -84,5 +94,71 @@ namespace ui
 		resources.dark.imgEdit = util::loadImageFromFile("assets/icons/dark/edit.png");
 
 		resources.loaded = true;
+	}
+
+
+
+	Styler::~Styler() { this->pop(); }
+
+	Styler::Styler(Styler&& s)
+	{
+		this->vars = s.vars; s.vars = 0;
+		this->flags = s.flags; s.flags = 0;
+		this->colours = s.colours; s.colours = 0;
+	}
+
+	Styler& Styler::operator= (Styler&& s)
+	{
+		if(this != &s)
+		{
+			this->vars = s.vars; s.vars = 0;
+			this->flags = s.flags; s.flags = 0;
+			this->colours = s.colours; s.colours = 0;
+		}
+		return *this;
+	}
+
+	Styler& Styler::push(int x, const util::colour& colour)
+	{
+		this->colours++;
+		imgui::PushStyleColor(x, colour);
+		return *this;
+	}
+
+	Styler& Styler::push(int x, const lx::vec2& vec)
+	{
+		this->vars++;
+		imgui::PushStyleVar(x, vec);
+		return *this;
+	}
+
+	Styler& Styler::push(int x, float value)
+	{
+		this->vars++;
+		imgui::PushStyleVar(x, value);
+		return *this;
+	}
+
+	Styler& Styler::push(int x, bool flag)
+	{
+		this->flags++;
+		imgui::PushItemFlag(x, flag);
+		return *this;
+	}
+
+	Styler& Styler::push(int x, int value) { return this->push(x, (float) value); }
+	Styler& Styler::push(int x, double value) { return this->push(x, (float) value); }
+
+
+	void Styler::pop()
+	{
+		imgui::PopStyleVar(this->vars);
+		imgui::PopStyleColor(this->colours);
+
+		this->vars = 0;
+		this->colours = 0;
+
+		while(this->flags > 0)
+			this->flags -= 1, imgui::PopItemFlag();
 	}
 }
