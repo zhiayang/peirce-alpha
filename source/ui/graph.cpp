@@ -94,9 +94,11 @@ namespace ui
 		imgui::End();
 	}
 
-	static void render(ImDrawList* dl, lx::vec2 origin, const Item* item)
+	static void render(Graph* graph, ImDrawList* dl, lx::vec2 origin, const Item* item)
 	{
 		auto& theme = ui::theme();
+
+		bool is_deiterable = graph->deiteration_targets.find(item) != graph->deiteration_targets.end();
 
 		util::colour outlineColour;
 		if(item->flags & FLAG_DETACHED)
@@ -114,6 +116,9 @@ namespace ui
 		else if(item->flags & FLAG_ITERATION_TARGET)
 			outlineColour = theme.boxDetached;
 
+		else if(is_deiterable)
+			outlineColour = theme.boxDropTarget;
+
 		else
 			outlineColour = theme.foreground;
 
@@ -126,24 +131,25 @@ namespace ui
 			}
 
 			for(auto child : item->subs)
-				render(dl, origin + item->pos + item->content_offset, child);
+				render(graph, dl, origin + item->pos + item->content_offset, child);
 		}
 		else
 		{
 			dl->AddText(origin + item->pos + item->content_offset,
 				outlineColour.u32(), item->name.c_str());
 
-			// if(item->flags & (FLAG_SELECTED | FLAG_MOUSE_HOVER))
+			// draw an underline so it's easier to see.
+			if(is_deiterable || item->flags & (FLAG_SELECTED | FLAG_MOUSE_HOVER | FLAG_ITERATION_TARGET))
 			{
-				dl->AddRect(origin + item->pos, origin + item->pos + item->size,
-					util::colour::blue().u32(), 0, 0, 1);
+				dl->AddLine(origin + item->pos + lx::vec2(3, item->size.y - 2),
+					origin + item->pos + item->size - lx::vec2(3, 2), outlineColour.u32(), 2);
 			}
 		}
 	}
 
 	static void render(ImDrawList* dl, Graph* graph)
 	{
-		render(dl, calc_origin(), &graph->box);
+		render(graph, dl, calc_origin(), &graph->box);
 	}
 
 	static lx::vec2 calc_origin()

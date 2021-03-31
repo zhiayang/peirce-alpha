@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <set>
 #include "defs.h"
 
 namespace ast
@@ -276,6 +277,10 @@ namespace ui
 			int maxid = 0;
 			Item box;
 
+			// internal state.
+			Item* iteration_target = 0;
+			std::set<const Item*> deiteration_targets;
+
 			ast::Expr* expr() const;
 			void setAst(ast::Expr* expr);
 
@@ -293,12 +298,15 @@ namespace ui
 		void eraseFromEvenDepth(Graph* graph, Item* item);
 
 		void iterate(Graph* graph, Item* target);
+		void deiterate(Graph* graph, Item* target);
 
-		bool haveIterationTarget();
-		void selectTargetForIteration(Item* item);
+		bool haveIterationTarget(Graph* graph);
+		void selectTargetForIteration(Graph* graph, Item* item);
 
 		bool hasDoubleCut(Item* item);
-		bool canIterateInto(const Item* selection);
+		bool canIterateInto(Graph* graph, const Item* selection);
 		bool areGraphsEquivalent(const Item* a, const Item* b);
+
+		std::set<const Item*> getDeiterationTargets(Graph* graph);
 	}
 }

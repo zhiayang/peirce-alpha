@@ -225,32 +225,41 @@ namespace ui
 		imgui::Indent();
 		{
 			{
+				bool desel = (sel.count() == 0 && graph->iteration_target != nullptr);
+
+				// if the selection is empty, make it deselect; selectTargetForIteration knows
+				// how to handle nullptrs.
+				auto en = (sel.count() == 1) || desel;
+				auto s = disabled_style(!en);
+
 				// crosshairs
-				auto s = disabled_style(sel.count() != 1);
-				if(imgui::Button("\uf05b select " ) && sel.count() == 1)
-					alpha::selectTargetForIteration(sel[0]);
+				if(imgui::Button(desel ? "\uf05b deselect " : "\uf05b select "))
+					alpha::selectTargetForIteration(graph, sel.count() == 1 ? sel[0] : nullptr);
 			}
 
 			{
 				// map-marker-plus
-				auto s = disabled_style(sel.count() != 1 || !alpha::canIterateInto(sel[0]));
+				auto s = disabled_style(sel.count() != 1 || !alpha::canIterateInto(graph, sel[0]));
 				if(imgui::Button("\uf60a iterate "))
 					alpha::iterate(graph, sel[0]);
 			}
 
 			{
+				auto deiterable = [&](const Item* item) -> bool {
+					return graph->deiteration_targets.find(item) != graph->deiteration_targets.end();
+				};
+
 				// map-marker-minus
-				// auto enable = (sel.count() == 1 || (sel.count() > 1 && sel.allSiblings())) && hasDoubleCut(sel[0]);
-				// auto s = disabled_style(!enable);
+				auto s = disabled_style(sel.count() != 1 || !deiterable(sel[0]));
 				if(imgui::Button("\uf609 deiterate "))
-					;
+					alpha::deiterate(graph, sel[0]);
 			}
 		}
 		imgui::Unindent();
 
 		imgui::NewLine();
 
-		if(alpha::haveIterationTarget())
+		if(alpha::haveIterationTarget(graph))
 		{
 			auto curs = imgui::GetCursorPos();
 			imgui::SetCursorPos(lx::vec2(curs.x, geom.sidebar.size.y - 56));

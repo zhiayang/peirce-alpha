@@ -25,6 +25,7 @@ namespace ui::alpha
 		this->id = ui::getNextId();
 	}
 
+	constexpr uint32_t PRESERVED_FLAGS = FLAG_ROOT;
 	Item* Item::clone() const
 	{
 		// do a shallow copy first using the default copy-constructor
@@ -35,6 +36,7 @@ namespace ui::alpha
 			child = child->clone();
 
 		foo->id = ui::getNextId();
+		foo->flags = (this->flags & PRESERVED_FLAGS);
 		return foo;
 	}
 
@@ -89,17 +91,14 @@ namespace ui::alpha
 		if(!a->isBox && !b->isBox)
 			return a->name == b->name;
 
-		if(a->isBox != b->isBox)
-			return false;
-
-		if(a->subs.size() != b->subs.size())
+		if((a->isBox != b->isBox) || (a->subs.size() != b->subs.size()))
 			return false;
 
 		bool eq = true;
 		for(size_t i = 0; i < a->subs.size(); i++)
-			eq = eq & areGraphsEquivalent(a->subs[i], b->subs[i]);
+			eq = eq && areGraphsEquivalent(a->subs[i], b->subs[i]);
 
-		return true;
+		return eq;
 	}
 }
 

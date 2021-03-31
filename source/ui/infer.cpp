@@ -6,20 +6,23 @@
 
 namespace ui::alpha
 {
-	static Item* iterationTarget = nullptr;
-
-	void selectTargetForIteration(Item* item)
+	void selectTargetForIteration(Graph* graph, Item* item)
 	{
-		if(iterationTarget)
-			iterationTarget->flags &= ~FLAG_ITERATION_TARGET;
+		if(graph->iteration_target)
+			graph->iteration_target->flags &= ~FLAG_ITERATION_TARGET;
 
-		iterationTarget = item;
-		item->flags |= FLAG_ITERATION_TARGET;
+		graph->iteration_target = item;
+		if(item != nullptr)
+			item->flags |= FLAG_ITERATION_TARGET;
+
+		// it's way too troublesome to have to set/reset the flags for each item
+		// so instead, we just store the list in the graph and check when rendering.
+		graph->deiteration_targets = alpha::getDeiterationTargets(graph);
 	}
 
-	bool haveIterationTarget()
+	bool haveIterationTarget(Graph* graph)
 	{
-		return iterationTarget != nullptr;
+		return graph->iteration_target != nullptr;
 	}
 
 	static bool is_ancestor(const Item* item, const Item* ancestor)
@@ -31,14 +34,14 @@ namespace ui::alpha
 			|| is_ancestor(item->parent(), ancestor);
 	}
 
-	bool canIterateInto(const Item* selection)
+	bool canIterateInto(Graph* graph, const Item* selection)
 	{
 		// iteration can paste to either the sibling level (ie. it becomes a sibling)
 		// or the level of niece and below (ie. paste as a child (or sub-child) of a
 		// sibling). "selection" is the target box, ie. when we paste, the pastee will
 		// end up inside this box. so, the box itself is already the parent.
 
-		auto iter = iterationTarget;
+		auto iter = graph->iteration_target;
 		if(iter == nullptr || iter == selection)
 			return false;
 
@@ -48,9 +51,9 @@ namespace ui::alpha
 
 	void iterate(Graph* graph, Item* target)
 	{
-		assert(canIterateInto(target));
+		assert(canIterateInto(graph, target));
 
-		auto iter = iterationTarget->clone();
+		auto iter = graph->iteration_target->clone();
 		iter->flags &= ~FLAG_ITERATION_TARGET;
 
 		iter->setParent(target);
@@ -61,8 +64,46 @@ namespace ui::alpha
 		ui::relayout(graph, iter);
 	}
 
+	void deiterate(Graph* graph, Item* target)
+	{
+		assert(graph->deiteration_targets.find(target) != graph->deiteration_targets.end());
 
+		eraseItemFromParent(target);
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+		ui::relayout(graph, target);
+	}
 
+	static void get_deiteration_targets(Graph* graph, std::set<const Item*>& tgts, const Item* thing)
+	{
+		if(areGraphsEquivalent(graph->iteration_target, thing))
+			tgts.insert(thing);
+
+		if(thing->isBox)
+		{
+			for(auto child : thing->subs)
+				get_deiteration_targets(graph, tgts, child);
+		}
+	}
+
+	std::set<const Item*> getDeiterationTargets(Graph* graph)
+	{
+		std::set<const Item*> tgts;
+		if(graph->iteration_target == nullptr)
+			return tgts;
+
+		auto iter = graph->iteration_target;
+		assert(iter->parent());
+		assert(iter->parent()->isBox);
+
+		// start it by looking at all siblings; recursion will handle their children.
+		for(auto sibling : iter->parent()->subs)
+		{
+			if(sibling != iter)
+				get_deiteration_targets(graph, tgts, sibling);
+		}
+
+		return tgts;
+	}
 
 
 
