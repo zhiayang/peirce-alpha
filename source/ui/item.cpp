@@ -53,9 +53,11 @@ namespace ui::alpha
 		this->_parent = parent;
 
 		this->cached_depth = 0;
-		if(this->_parent == nullptr || this->_parent->flags & FLAG_ROOT)
+		if(parent == nullptr || parent->flags & FLAG_ROOT)
 			return;
 
+		// force the entire ancestry to recalculate their depth.
+		this->_parent->setParent(this->_parent->_parent);
 		this->cached_depth = 1 + this->_parent->depth();
 	}
 
@@ -79,4 +81,29 @@ namespace ui::alpha
 
 		return ret;
 	}
+
+
+
+	bool areGraphsEquivalent(const Item* a, const Item* b)
+	{
+		if(!a->isBox && !b->isBox)
+			return a->name == b->name;
+
+		if(a->isBox != b->isBox)
+			return false;
+
+		if(a->subs.size() != b->subs.size())
+			return false;
+
+		bool eq = true;
+		for(size_t i = 0; i < a->subs.size(); i++)
+			eq = eq & areGraphsEquivalent(a->subs[i], b->subs[i]);
+
+		return true;
+	}
 }
+
+
+
+
+

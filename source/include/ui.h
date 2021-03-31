@@ -39,6 +39,9 @@ namespace ui
 	void draw();
 	void update();
 
+	// postpone the 'no-event-sleep'.
+	void continueDrawing();
+
 	void eraseItemFromParent(alpha::Item* item);
 
 	// takes in the ImGuiMouseCursor_ enum.
@@ -96,10 +99,10 @@ namespace ui
 		uint32_t FLAG_ALL_HAVE_DOUBLE_CUT   = 2;
 	};
 
-	const Selection& selection();
-
+	Selection& selection();
 	alpha::Item* getSelected();
 
+	void logMessage(const std::string& msg, double timeout_secs = 0);
 
 	struct Action
 	{
@@ -219,6 +222,7 @@ namespace ui
 		constexpr uint32_t FLAG_GRAPH_MODIFIED      = 0x20; // the graph was modified graphically
 		constexpr uint32_t FLAG_FORCE_AUTO_LAYOUT   = 0x40; // force an autolayout of the graph on the next update
 		constexpr uint32_t FLAG_MOUSE_HOVER         = 0x80; // the mouse is hovering over it
+		constexpr uint32_t FLAG_ITERATION_TARGET    = 0x100;
 
 		struct Item
 		{
@@ -285,6 +289,16 @@ namespace ui
 		void insertDoubleCut(Graph* graph, const Selection& item);
 		void removeDoubleCut(Graph* graph, const Selection& item);
 
+		void insertAtOddDepth(Graph* graph, Item* parent, Item* item);
+		void eraseFromEvenDepth(Graph* graph, Item* item);
+
+		void iterate(Graph* graph, Item* target);
+
+		bool haveIterationTarget();
+		void selectTargetForIteration(Item* item);
+
 		bool hasDoubleCut(Item* item);
+		bool canIterateInto(const Item* selection);
+		bool areGraphsEquivalent(const Item* a, const Item* b);
 	}
 }

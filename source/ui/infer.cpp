@@ -6,6 +6,86 @@
 
 namespace ui::alpha
 {
+	static Item* iterationTarget = nullptr;
+
+	void selectTargetForIteration(Item* item)
+	{
+		if(iterationTarget)
+			iterationTarget->flags &= ~FLAG_ITERATION_TARGET;
+
+		iterationTarget = item;
+		item->flags |= FLAG_ITERATION_TARGET;
+	}
+
+	bool haveIterationTarget()
+	{
+		return iterationTarget != nullptr;
+	}
+
+	static bool is_ancestor(const Item* item, const Item* ancestor)
+	{
+		if(item->parent() == nullptr)
+			return false;
+
+		return item->parent() == ancestor
+			|| is_ancestor(item->parent(), ancestor);
+	}
+
+	bool canIterateInto(const Item* selection)
+	{
+		// iteration can paste to either the sibling level (ie. it becomes a sibling)
+		// or the level of niece and below (ie. paste as a child (or sub-child) of a
+		// sibling). "selection" is the target box, ie. when we paste, the pastee will
+		// end up inside this box. so, the box itself is already the parent.
+
+		auto iter = iterationTarget;
+		if(iter == nullptr || iter == selection)
+			return false;
+
+		return selection->isBox && (iter->parent() == selection
+			|| is_ancestor(selection, iter->parent()));
+	}
+
+	void iterate(Graph* graph, Item* target)
+	{
+		assert(canIterateInto(target));
+
+		auto iter = iterationTarget->clone();
+		iter->flags &= ~FLAG_ITERATION_TARGET;
+
+		iter->setParent(target);
+
+		target->subs.push_back(iter);
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+		ui::relayout(graph, iter);
+	}
+
+
+
+
+
+
+	void insertAtOddDepth(Graph* graph, Item* parent, Item* item)
+	{
+		item->setParent(parent);
+		parent->subs.push_back(item);
+
+		graph->flags |= (FLAG_GRAPH_MODIFIED | FLAG_FORCE_AUTO_LAYOUT);
+		ui::relayout(graph, item);
+	}
+
+	void eraseFromEvenDepth(Graph* graph, Item* item)
+	{
+		ui::eraseItemFromParent(item);
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+		ui::relayout(graph, item);
+	}
+
+
+
+
 	void insertDoubleCut(Graph* graph, const Selection& sel)
 	{
 		if(sel.empty() || !sel.allSiblings())

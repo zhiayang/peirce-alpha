@@ -54,14 +54,14 @@ namespace ui
 		int resizingEdge = 0;   // 1 = north, 2 = northeast, 3 = east, etc.
 
 		std::vector<Item*> clipboard;
-		uint32_t tools = 0;
+		uint32_t tools = TOOL_MOVE; // enable moving by default.
 	} state;
 
 	bool toolEnabled(uint32_t tool) { return state.tools & tool; }
 	void disableTool(uint32_t tool) { state.tools &= ~tool; }
 	void enableTool(uint32_t tool)  { state.tools |= tool; }
 	bool toggleTool(uint32_t tool)  { state.tools ^= tool; return state.tools & tool; }
-	const Selection& selection()    { return state.selection; }
+	Selection& selection()    { return state.selection; }
 
 	void setClipboard(std::vector<alpha::Item*> items)
 	{

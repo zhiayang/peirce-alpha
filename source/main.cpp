@@ -15,17 +15,22 @@ void ui::quit()
 	::quit = true;
 }
 
+static int counter = 0;
+void ui::continueDrawing()
+{
+	counter = 10;
+}
+
 int main(int argc, char** argv)
 {
 	(void) argc;
 	(void) argv;
 
 	ui::init(/* title: */ "Peirce Alpha System");
-	ui::setup(/* ui scale: */ 2, /* font size: */ 18.0, ui::dark());
+	ui::setup(/* ui scale: */ 2, /* font size: */ 18.0, ui::light());
 
 	constexpr int CUTOFF = 30;
 
-	int counter = 0;
 	while(!quit)
 	{
 		using namespace std::chrono_literals;

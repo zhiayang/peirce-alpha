@@ -2,6 +2,8 @@
 // Copyright (c) 2021, zhiayang
 // Licensed under the Apache License Version 2.0.
 
+#include <chrono>
+
 #include "ui.h"
 #include "imgui/imgui.h"
 
@@ -14,6 +16,19 @@ namespace ui
 
 	static lx::vec2 calc_origin();
 	static void render(ImDrawList* dl, Graph* graph);
+
+	static struct {
+		std::string msg;
+		double begin;
+		double duration;
+	} messageState;
+
+	static double get_time_now()
+	{
+		std::chrono::duration<double, std::ratio<1>> dur = std::chrono::system_clock::now().time_since_epoch();
+		return dur.count();
+	}
+
 
 	int getNextId()
 	{
@@ -52,6 +67,30 @@ namespace ui
 		}
 
 		render(imgui::GetWindowDrawList(), graph);
+
+		// render the message
+		constexpr double FADE_TIME = 0.5;
+		if(auto msg = messageState.msg; !msg.empty() && get_time_now() - messageState.begin > messageState.duration + FADE_TIME)
+		{
+			messageState.msg = "";
+		}
+		else if(!msg.empty())
+		{
+			imgui::SetCursorPos(lx::vec2(12, geom.graph.size.y - 28));
+
+			auto s = Styler();
+			if(auto diff = get_time_now() - messageState.begin; diff > messageState.duration)
+			{
+				auto alpha = 1.0 - ((diff - messageState.duration) / FADE_TIME);
+				s.push(ImGuiStyleVar_Alpha, alpha);
+			}
+
+			if(messageState.duration != INFINITY)
+				ui::continueDrawing();
+
+			imgui::TextUnformatted(msg.c_str());
+		}
+
 		imgui::End();
 	}
 
@@ -71,6 +110,9 @@ namespace ui
 
 		else if(item->flags & FLAG_MOUSE_HOVER)
 			outlineColour = theme.boxHover;
+
+		else if(item->flags & FLAG_ITERATION_TARGET)
+			outlineColour = theme.boxDetached;
 
 		else
 			outlineColour = theme.foreground;
@@ -114,5 +156,15 @@ namespace ui
 		origin -= lx::vec2(sx, sy);
 
 		return origin;
+	}
+
+
+	void logMessage(const std::string& msg, double timeout_secs)
+	{
+		messageState = {
+			.msg = msg,
+			.begin = get_time_now(),
+			.duration = (timeout_secs == 0 ? INFINITY : timeout_secs)
+		};
 	}
 }

@@ -94,9 +94,8 @@ namespace ui
 			if(auto s = toggle_enabled_style(edit); true)
 			{
 				// fa-edit, fa-exchange-alt
-				// note that enabling edit will always enable the move tool.
 				if(imgui::Button(edit ? "\uf044 edit " : "\uf362 infer "))
-					ui::toggleTool(TOOL_EDIT) ? ui::enableTool(TOOL_MOVE) : (void) 0;
+					edit = ui::toggleTool(TOOL_EDIT);
 			}
 
 			if(auto s = toggle_enabled_style(move); true)
@@ -120,10 +119,13 @@ namespace ui
 					ui::toggleTool(TOOL_RESIZE);
 			}
 
-			// fa-cut, fa-copy, fa-paste
-			imgui::Button("\uf0c5 copy ");
-			imgui::Button("\uf0c4 cut ");
-			imgui::Button("\uf0ea paste ");
+			if(edit)
+			{
+				// fa-copy, fa-cut, fa-paste
+				imgui::Button("\uf0c5 copy ");
+				imgui::Button("\uf0c4 cut ");
+				imgui::Button("\uf0ea paste ");
+			}
 		}
 
 		imgui::Unindent();
@@ -132,26 +134,68 @@ namespace ui
 
 	static void inference_tools(Graph* graph)
 	{
+		auto geom = geometry::get();
 		auto& theme = ui::theme();
 		auto& sel = selection();
 
 		imgui::Text("inference"); imgui::Dummy(lx::vec2(4));
 		imgui::Indent();
 		{
-			// fa-plus-circle
-			imgui::Button("\uf055 insert "); imgui::SameLine();
+			// insert anything into an odd depth
+			{
+				/*
+					the thing is, we are placing in a box --- so the "final resting place"
+					of the inserted item is actually 1 + the depth of the box -- so we
+					need to check that the box is an even depth!
 
-			auto s = Styler();
-			imgui::SetNextItemWidth(64);
-			s.push(ImGuiCol_FrameBg, theme.tooltipBg);
+					the other good thing is that we don't need to handle the case where we want
+					to insert into the outermost "grid" (ie. the field itself) because anything
+					added there will be at an even depth -- so the inference rule prevents that
+					from happening entirely.
+				*/
+				auto en = sel.count() == 1
+					&& sel[0]->isBox
+					&& sel[0]->depth() % 2 == 0;
 
-			// static!
-			static char buf[17] = { };
-			imgui::InputTextWithHint("", " prop", buf, 16);
 
+				// static!
+				static char buf[17] = { };
 
-			// fa-minus-circle
-			imgui::Button("\uf056 erase ");
+				auto s = disabled_style(!en || strlen(buf) == 0);
+
+				// fa-plus-circle
+				bool insert = imgui::Button("\uf055 insert "); imgui::SameLine();
+
+				s.pop();
+				{
+					auto s = Styler();
+					imgui::SetNextItemWidth(64);
+					s.push(ImGuiCol_FrameBg, theme.tooltipBg);
+
+					imgui::InputTextWithHint("", " prop", buf, 16);
+				}
+
+				auto prop = std::string(buf, strlen(buf));
+
+				if(insert)
+				{
+					alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(prop));
+				}
+			}
+
+			{
+				// erase anything from an even depth
+				auto en = sel.count() == 1
+					&& sel[0]->depth() % 2 == 0;
+
+				// fa-minus-circle
+				auto s = disabled_style(!en);
+				if(imgui::Button("\uf056 erase "))
+				{
+					alpha::eraseFromEvenDepth(graph, sel[0]);
+					sel.clear();
+				}
+			}
 		}
 		imgui::Unindent();
 
@@ -181,10 +225,17 @@ namespace ui
 		imgui::Indent();
 		{
 			{
+				// crosshairs
+				auto s = disabled_style(sel.count() != 1);
+				if(imgui::Button("\uf05b select " ) && sel.count() == 1)
+					alpha::selectTargetForIteration(sel[0]);
+			}
+
+			{
 				// map-marker-plus
-				// auto s = disabled_style(sel.empty() || !sel.allSiblings());
+				auto s = disabled_style(sel.count() != 1 || !alpha::canIterateInto(sel[0]));
 				if(imgui::Button("\uf60a iterate "))
-					;
+					alpha::iterate(graph, sel[0]);
 			}
 
 			{
@@ -196,6 +247,22 @@ namespace ui
 			}
 		}
 		imgui::Unindent();
+
+		imgui::NewLine();
+
+		if(alpha::haveIterationTarget())
+		{
+			auto curs = imgui::GetCursorPos();
+			imgui::SetCursorPos(lx::vec2(curs.x, geom.sidebar.size.y - 56));
+			imgui::TextUnformatted("iteration target");
+		}
+
+		if(sel.count() == 1)
+		{
+			auto curs = imgui::GetCursorPos();
+			imgui::SetCursorPos(lx::vec2(curs.x, geom.sidebar.size.y - 34));
+			imgui::TextUnformatted(zpr::sprint("depth: {}", sel[0]->depth()).c_str());
+		}
 	}
 
 	static void editing_tools(Graph* graph)
