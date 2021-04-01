@@ -29,7 +29,9 @@ namespace ui
 						Item::var("B"),
 						Item::box({
 							Item::box({
-								Item::var("X")
+								Item::var("X"),
+								Item::var("Y"),
+								Item::var("Z"),
 							})
 						})
 					})

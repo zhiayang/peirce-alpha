@@ -146,6 +146,12 @@ namespace ui::alpha
 
 		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
 		sel.refresh();
+
+		zpr::println("add: p has {} subs", p->subs.size());
+		// ui::performAction(Action {
+		// 	.type   = Action::INFER_ADD_DOUBLE_CUT,
+		// 	.items  = state.selection.get()
+		// });
 	}
 
 	void removeDoubleCut(Graph* graph, const Selection& sel)
@@ -162,11 +168,15 @@ namespace ui::alpha
 		auto gp = p->parent();
 		auto ggp = gp->parent();
 
-		for(auto sibling : p->subs)
-		{
+		// make a copy first. we cannot iterate over parent->subs and
+		// eraseItemFromParent at the same time...
+		auto siblings = p->subs;
+		for(auto sibling : siblings)
 			eraseItemFromParent(sibling);
-			sibling->setParent(ggp);
 
+		for(auto sibling : siblings)
+		{
+			sibling->setParent(ggp);
 			ggp->subs.push_back(sibling);
 		}
 
