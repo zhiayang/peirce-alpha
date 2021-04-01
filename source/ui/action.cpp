@@ -5,6 +5,7 @@
 #include <deque>
 
 #include "ui.h"
+#include "alpha.h"
 
 namespace ui
 {

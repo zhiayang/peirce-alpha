@@ -5,14 +5,14 @@
 #include <math.h>
 
 #include "ui.h"
+#include "alpha.h"
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;
+using namespace alpha;
 
 namespace ui
 {
-	using namespace alpha;
-
 	// the layout algorithm is as simple as possible -- stack items horizontally
 	// as long as we are within the width limit, else move vertically and restart.
 	// scrolling both vertically and horizontally is annoying, so don't make the

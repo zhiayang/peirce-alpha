@@ -3,9 +3,21 @@
 // Licensed under the Apache License Version 2.0.
 
 #include "ui.h"
+#include "alpha.h"
 
-namespace ui::alpha
+namespace alpha
 {
+	void eraseItemFromParent(Item* item)
+	{
+		auto parent = item->parent();
+		assert(parent != nullptr);
+
+		auto it = std::find(parent->subs.begin(), parent->subs.end(), item);
+		assert(it != parent->subs.end());
+		parent->subs.erase(it);
+	}
+
+
 	void selectTargetForIteration(Graph* graph, Item* item)
 	{
 		if(graph->iteration_target)
@@ -118,7 +130,7 @@ namespace ui::alpha
 
 	void eraseFromEvenDepth(Graph* graph, Item* item)
 	{
-		ui::eraseItemFromParent(item);
+		eraseItemFromParent(item);
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, item);
@@ -127,7 +139,7 @@ namespace ui::alpha
 
 
 
-	void insertDoubleCut(Graph* graph, const Selection& sel)
+	void insertDoubleCut(Graph* graph, const ui::Selection& sel)
 	{
 		if(sel.empty() || !sel.allSiblings())
 			return;
@@ -147,14 +159,13 @@ namespace ui::alpha
 		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
 		sel.refresh();
 
-		zpr::println("add: p has {} subs", p->subs.size());
-		// ui::performAction(Action {
-		// 	.type   = Action::INFER_ADD_DOUBLE_CUT,
-		// 	.items  = state.selection.get()
-		// });
+		ui::performAction(ui::Action {
+			.type   = ui::Action::INFER_ADD_DOUBLE_CUT,
+			.items  = sel.get()
+		});
 	}
 
-	void removeDoubleCut(Graph* graph, const Selection& sel)
+	void removeDoubleCut(Graph* graph, const ui::Selection& sel)
 	{
 		// we only operate on the first one! every other item selected must be a sibling.
 		if(sel.empty() || !hasDoubleCut(sel[0]) || !sel.allSiblings())

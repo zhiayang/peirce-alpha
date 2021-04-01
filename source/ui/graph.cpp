@@ -5,10 +5,11 @@
 #include <chrono>
 
 #include "ui.h"
+#include "alpha.h"
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;
-using namespace ui::alpha;
+using namespace alpha;
 
 namespace ui
 {

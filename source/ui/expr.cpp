@@ -4,9 +4,10 @@
 
 #include "ui.h"
 #include "ast.h"
+#include "alpha.h"
 
 using namespace ast;
-namespace ui::alpha
+namespace alpha
 {
 	static Expr* transform(Expr* expr)
 	{

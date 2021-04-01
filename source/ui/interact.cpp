@@ -7,6 +7,7 @@
 #include <SDL2/SDL.h>
 
 #include "ui.h"
+#include "alpha.h"
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;
@@ -283,17 +284,6 @@ namespace ui
 			lg::log("ui", "quitting");
 			ui::quit();
 		}
-	}
-
-
-	void eraseItemFromParent(Item* item)
-	{
-		auto parent = item->parent();
-		assert(parent != nullptr);
-
-		auto it = std::find(parent->subs.begin(), parent->subs.end(), item);
-		assert(it != parent->subs.end());
-		parent->subs.erase(it);
 	}
 
 	static void handle_reattach(Graph* graph)

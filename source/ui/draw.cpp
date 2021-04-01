@@ -3,6 +3,7 @@
 // Licensed under the Apache License Version 2.0.
 
 #include "ui.h"
+#include "alpha.h"
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;
@@ -30,7 +31,7 @@ namespace ui
 						Item::box({
 							Item::box({
 								Item::var("X"),
-								Item::var("Y"),
+								Item::var("B"),
 								Item::var("Z"),
 							})
 						})

@@ -3,8 +3,9 @@
 // Licensed under the Apache License Version 2.0.
 
 #include "ui.h"
+#include "alpha.h"
 
-namespace ui::alpha
+namespace alpha
 {
 	Graph::Graph(std::vector<Item*> items) : box()
 	{

@@ -4,6 +4,7 @@
 
 #include "ui.h"
 #include "ast.h"
+#include "alpha.h"
 #include "imgui/imgui.h"
 
 namespace imgui = ImGui;

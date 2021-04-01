@@ -4,11 +4,12 @@
 
 #include "ui.h"
 #include "ast.h"
+#include "alpha.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
 
 namespace imgui = ImGui;
-using namespace ui::alpha;
+using namespace alpha;
 
 namespace ui
 {
