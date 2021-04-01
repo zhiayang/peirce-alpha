@@ -173,7 +173,57 @@ namespace ui
 
 
 
+	void performCopy(alpha::Graph* graph)
+	{
+		state.clipboard = state.selection.get();
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+	}
 
+	void performCut(alpha::Graph* graph)
+	{
+		performCopy(graph);
+
+		ui::performAction(Action {
+			.type  = Action::CUT,
+			.items = state.selection.get()
+		});
+
+		for(auto x : state.selection)
+			eraseItemFromParent(x);
+
+		state.selection.clear();
+	}
+
+	void performPaste(alpha::Graph* graph, alpha::Item* paste_into)
+	{
+		std::vector<alpha::Item*> clones;
+		for(auto x : state.clipboard)
+			clones.push_back(x->clone());
+
+		assert(paste_into && paste_into->isBox);
+
+		paste_into->subs.insert(paste_into->subs.begin(), clones.begin(), clones.end());
+		for(auto x : clones)
+		{
+			if(x->parent() != paste_into)
+				x->pos = lx::vec2(0, 0);
+
+			x->setParent(paste_into);
+		}
+
+		ui::performAction(Action {
+			.type  = Action::PASTE,
+			.items = clones
+		});
+
+		for(auto x : clones)
+		{
+			x->flags &= ~FLAG_SELECTED;
+			relayout(graph, x);
+		}
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+	}
 
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
 	{
@@ -199,22 +249,8 @@ namespace ui
 		}
 		else if(!state.selection.empty() && (is_char_pressed('x') || is_char_pressed('c')) && (has_cmd() || has_ctrl()))
 		{
-			state.clipboard = state.selection.get();
-
-			if(toolEnabled(TOOL_EDIT) && is_char_pressed('x'))
-			{
-				ui::performAction(Action {
-					.type  = Action::CUT,
-					.items = state.selection.get()
-				});
-
-				for(auto x : state.selection)
-					eraseItemFromParent(x);
-
-				state.selection.clear();
-			}
-
-			graph->flags |= FLAG_GRAPH_MODIFIED;
+			if(is_char_pressed('c')) performCopy(graph);
+			else                     performCut(graph);
 		}
 		else if(toolEnabled(TOOL_EDIT) && is_char_pressed('v') && (has_cmd() || has_ctrl()))
 		{
@@ -222,54 +258,27 @@ namespace ui
 			if(state.selection.count() > 1)
 				return;
 
-			std::vector<Item*> clones;
-			for(auto x : state.clipboard)
-				clones.push_back(x->clone());
+			alpha::Item* drop = nullptr;
 
-			// if there's something selected (and it's a box), paste it inside
-			if(!state.selection.empty() && state.selection[0]->isBox)
+			// if there's nothing selected, use the mouse position.
+			if(state.selection.empty())
 			{
-				auto foster = state.selection[0];
-				foster->subs.insert(foster->subs.end(), clones.begin(), clones.end());
-
-				for(auto x : clones)
-				{
-					if(x->parent() != foster)
-						x->pos = lx::vec2(0, 0);
-
-					x->setParent(foster);
-				}
+				drop = hit_test(mouse, &graph->box, /* only_boxes: */ true);
+				if(drop == nullptr)
+					drop = &graph->box;
 			}
 			else
 			{
-				// else paste it at the mouse position.
-				auto drop = hit_test(mouse, &graph->box, /* only_boxes: */ true);
-				if(drop == nullptr)
-					drop = &graph->box;
-
-				auto drop_abs_pos = compute_abs_pos(drop);
-
-				for(auto clone : clones)
-				{
-					clone->pos = mouse - drop_abs_pos - drop->content_offset;
-					clone->setParent(drop);
-
-					drop->subs.push_back(clone);
-				}
+				drop = state.selection[0];
 			}
 
-			ui::performAction(Action {
-				.type  = Action::PASTE,
-				.items = clones
-			});
+			if(drop == nullptr)
+				return;
 
-			for(auto x : clones)
-			{
-				x->flags &= ~FLAG_SELECTED;
-				relayout(graph, x);
-			}
+			if(!drop->isBox)
+				drop = drop->parent();
 
-			graph->flags |= FLAG_GRAPH_MODIFIED;
+			performPaste(graph, drop);
 		}
 		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && !has_shift()))
 		{

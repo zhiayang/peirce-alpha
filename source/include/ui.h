@@ -131,6 +131,11 @@ namespace ui
 	void performUndo(alpha::Graph* graph);
 	void performRedo(alpha::Graph* graph);
 
+
+	void performCopy(alpha::Graph* graph);
+	void performCut(alpha::Graph* graph);
+	void performPaste(alpha::Graph* graph, alpha::Item* paste_into);
+
 	Theme dark();
 	Theme light();
 	const Theme& theme();
