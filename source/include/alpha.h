@@ -86,11 +86,11 @@ namespace alpha
 	void eraseItemFromParent(Item* item);
 
 	// inference rules
-	void insertDoubleCut(Graph* graph, const ui::Selection& item);
-	void removeDoubleCut(Graph* graph, const ui::Selection& item);
+	void insertDoubleCut(Graph* graph, const ui::Selection& item, bool log_action = true);
+	void removeDoubleCut(Graph* graph, const ui::Selection& item, bool log_action = true);
 
-	void insertAtOddDepth(Graph* graph, Item* parent, Item* item);
-	void eraseFromEvenDepth(Graph* graph, Item* item);
+	void insertAtOddDepth(Graph* graph, Item* parent, Item* item, bool log_action = true);
+	void eraseFromEvenDepth(Graph* graph, Item* item, bool log_action = true);
 
 	void iterate(Graph* graph, Item* target);
 	void deiterate(Graph* graph, Item* target);

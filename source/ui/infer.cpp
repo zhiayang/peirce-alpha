@@ -119,27 +119,45 @@ namespace alpha
 
 
 
-	void insertAtOddDepth(Graph* graph, Item* parent, Item* item)
+	void insertAtOddDepth(Graph* graph, Item* parent, Item* item, bool log_action)
 	{
 		item->setParent(parent);
 		parent->subs.push_back(item);
 
 		graph->flags |= (FLAG_GRAPH_MODIFIED | FLAG_FORCE_AUTO_LAYOUT);
 		ui::relayout(graph, item);
+
+		if(log_action)
+		{
+			ui::performAction(ui::Action {
+				.type = ui::Action::INFER_INSERTION,
+				.items = { item },
+				.oldParent = parent
+			});
+		}
 	}
 
-	void eraseFromEvenDepth(Graph* graph, Item* item)
+	void eraseFromEvenDepth(Graph* graph, Item* item, bool log_action)
 	{
 		eraseItemFromParent(item);
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, item);
+
+		if(log_action)
+		{
+			ui::performAction(ui::Action {
+				.type = ui::Action::INFER_ERASURE,
+				.items = { item },
+				.oldParent = item->parent()
+			});
+		}
 	}
 
 
 
 
-	void insertDoubleCut(Graph* graph, const ui::Selection& sel)
+	void insertDoubleCut(Graph* graph, const ui::Selection& sel, bool log_action)
 	{
 		if(sel.empty() || !sel.allSiblings())
 			return;
@@ -159,13 +177,18 @@ namespace alpha
 		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
 		sel.refresh();
 
-		ui::performAction(ui::Action {
-			.type   = ui::Action::INFER_ADD_DOUBLE_CUT,
-			.items  = sel.get()
-		});
+		// note that this flag is required because we'll be smart obviously and just use
+		// this function to undo a double cut removal; we don't want to add an action for that.
+		if(log_action)
+		{
+			ui::performAction(ui::Action {
+				.type   = ui::Action::INFER_ADD_DOUBLE_CUT,
+				.items  = sel.get()
+			});
+		}
 	}
 
-	void removeDoubleCut(Graph* graph, const ui::Selection& sel)
+	void removeDoubleCut(Graph* graph, const ui::Selection& sel, bool log_action)
 	{
 		// we only operate on the first one! every other item selected must be a sibling.
 		if(sel.empty() || !hasDoubleCut(sel[0]) || !sel.allSiblings())
@@ -198,6 +221,15 @@ namespace alpha
 
 		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
 		sel.refresh();
+
+		if(log_action)
+		{
+			// here, the list of affected items is all the siblings, not just the selected one.
+			ui::performAction(ui::Action {
+				.type   = ui::Action::INFER_DEL_DOUBLE_CUT,
+				.items  = siblings
+			});
+		}
 	}
 
 

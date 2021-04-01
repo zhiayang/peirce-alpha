@@ -78,6 +78,28 @@ namespace ui
 				ui::relayout(graph, action.items[0]);
 			} break;
 
+			case Action::INFER_ADD_DOUBLE_CUT: {
+				auto sel = Selection();
+				sel.set(action.items);
+				alpha::removeDoubleCut(graph, sel, /* log_action: */ false);
+				sel.clear();
+			} break;
+
+			case Action::INFER_DEL_DOUBLE_CUT: {
+				auto sel = Selection();
+				sel.set(action.items);
+				alpha::insertDoubleCut(graph, sel, /* log_action: */ false);
+				sel.clear();
+			} break;
+
+			case Action::INFER_INSERTION: {
+				alpha::eraseFromEvenDepth(graph, action.items[0], /* log_action: */ false);
+			} break;
+
+			case Action::INFER_ERASURE: {
+				alpha::insertAtOddDepth(graph, action.oldParent, action.items[0], /* log_action: */ false);
+			} break;
+
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);
 				break;
@@ -128,6 +150,28 @@ namespace ui
 				// the parent got swapped, so add it to the new parent.
 				action.items[0]->parent()->subs.push_back(action.items[0]);
 				ui::relayout(graph, action.items[0]);
+			} break;
+
+			case Action::INFER_ADD_DOUBLE_CUT: {
+				auto sel = Selection();
+				sel.set(action.items);
+				alpha::insertDoubleCut(graph, sel, /* log_action: */ false);
+				sel.clear();
+			} break;
+
+			case Action::INFER_DEL_DOUBLE_CUT: {
+				auto sel = Selection();
+				sel.set(action.items);
+				alpha::removeDoubleCut(graph, sel, /* log_action: */ false);
+				sel.clear();
+			} break;
+
+			case Action::INFER_INSERTION: {
+				alpha::insertAtOddDepth(graph, action.oldParent, action.items[0], /* log_action: */ false);
+			} break;
+
+			case Action::INFER_ERASURE: {
+				alpha::eraseFromEvenDepth(graph, action.items[0], /* log_action: */ false);
 			} break;
 
 			default:

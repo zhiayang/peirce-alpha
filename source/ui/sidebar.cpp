@@ -57,7 +57,6 @@ namespace ui
 		if(toolEnabled(TOOL_EDIT))  editing_tools(graph);
 		else                        inference_tools(graph);
 
-
 		imgui::End();
 	}
 
