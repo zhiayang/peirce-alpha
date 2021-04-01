@@ -21,6 +21,12 @@ namespace ui
 		ast::Expr* cachedExpr = 0;
 	} state;
 
+	static bool isFocused = false;
+	bool isTextFieldFocused()
+	{
+		return isFocused;
+	}
+
 	void draw_exprbar(Graph* graph)
 	{
 		auto& theme = ui::theme();
@@ -49,6 +55,7 @@ namespace ui
 
 		imgui::SetNextItemWidth(-40);
 		imgui::InputTextWithHint("", "expression", state.text_buffer, BUFFER_SIZE);
+		isFocused = imgui::IsItemFocused();
 
 		imgui::PushStyleVar(ImGuiStyleVar_FramePadding, lx::vec2(4));
 		{
@@ -71,6 +78,7 @@ namespace ui
 		imgui::PopStyleColor(2);
 		imgui::PopStyleVar(3);
 	}
+
 
 	static void submit_expr(Graph* graph)
 	{

@@ -225,9 +225,31 @@ namespace ui
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 	}
 
+	bool canPaste()
+	{
+		return state.clipboard.size() > 0;
+	}
+
+	bool canCopyOrCut()
+	{
+		return !state.selection.empty();
+	}
+
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
 	{
-		if(toolEnabled(TOOL_EDIT) && !state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
+		if(is_char_pressed('e'))
+		{
+			ui::toggleTool(TOOL_EDIT);
+		}
+		else if(is_char_pressed('m'))
+		{
+			ui::toggleTool(TOOL_MOVE);
+		}
+		else if(is_char_pressed('r'))
+		{
+			ui::toggleTool(TOOL_RESIZE);
+		}
+		else if(toolEnabled(TOOL_EDIT) && !state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
 		{
 			ui::performAction(Action {
 				.type   = Action::DELETE,
@@ -247,7 +269,8 @@ namespace ui
 		{
 			state.selection.clear();
 		}
-		else if(!state.selection.empty() && (is_char_pressed('x') || is_char_pressed('c')) && (has_cmd() || has_ctrl()))
+		else if(toolEnabled(TOOL_EDIT) && !state.selection.empty() && (is_char_pressed('x')
+			|| is_char_pressed('c')) && (has_cmd() || has_ctrl()))
 		{
 			if(is_char_pressed('c')) performCopy(graph);
 			else                     performCut(graph);
@@ -518,6 +541,9 @@ namespace ui
 
 	static bool is_char_pressed(char key)
 	{
+		if(ui::isTextFieldFocused())
+			return false;
+
 		if('A' <= key && key <= 'Z')    return imgui::IsKeyPressed(SDL_SCANCODE_A + (key - 'A'));
 		if('a' <= key && key <= 'z')    return imgui::IsKeyPressed(SDL_SCANCODE_A + (key - 'a'));
 		if('1' <= key && key <= '9')    return imgui::IsKeyPressed(SDL_SCANCODE_1 + (key - '1'));
@@ -528,6 +554,9 @@ namespace ui
 
 	static bool is_key_pressed(uint32_t scancode)
 	{
+		if(ui::isTextFieldFocused())
+			return false;
+
 		return imgui::IsKeyPressed(scancode);
 	}
 

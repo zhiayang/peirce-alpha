@@ -63,7 +63,7 @@ namespace ui
 			auto min = geom.graph.pos;
 			auto max = geom.graph.pos + geom.graph.size;
 
-			if(mouse.x >= min.x && mouse.y >= min.y && mouse.x <= max.x && mouse.y <= max.y)
+			if(imgui::IsMousePosValid())
 				ui::interact(calc_origin(), graph);
 		}
 

@@ -36,7 +36,7 @@ namespace ui
 		s.push(ImGuiCol_FrameBg, theme.sidebarBg);
 		s.push(ImGuiStyleVar_FramePadding, lx::vec2(4));
 		s.push(ImGuiStyleVar_ItemSpacing, lx::vec2(1));
-		s.push(ImGuiStyleVar_IndentSpacing, 16);
+		s.push(ImGuiStyleVar_IndentSpacing, 4);
 		s.push(ImGuiStyleVar_FrameRounding, 2);
 
 		imgui::Begin("__sidebar", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar
@@ -50,6 +50,7 @@ namespace ui
 				theme.foreground.u32(), /* thickness: */ 2.0
 			);
 		}
+
 
 		interaction_tools(graph);
 		imgui::NewLine();
@@ -94,14 +95,14 @@ namespace ui
 			if(auto s = toggle_enabled_style(edit); true)
 			{
 				// fa-edit, fa-exchange-alt
-				if(imgui::Button(edit ? "\uf044 edit " : "\uf362 infer "))
+				if(imgui::Button(edit ? "e \uf044 edit " : "e \uf362 infer "))
 					edit = ui::toggleTool(TOOL_EDIT);
 			}
 
 			if(auto s = toggle_enabled_style(move); true)
 			{
 				// fa-arrows
-				if(imgui::Button("\uf047 move "))
+				if(imgui::Button("m \uf047 move "))
 					ui::toggleTool(TOOL_MOVE);
 
 				if(auto& s = ui::selection(); s.count() == 1 && s[0]->flags & FLAG_DETACHED)
@@ -115,16 +116,27 @@ namespace ui
 			if(auto s = toggle_enabled_style(resize); true)
 			{
 				// fa-expand-alt
-				if(imgui::Button("\uf424 resize "))
+				if(imgui::Button("r \uf424 resize "))
 					ui::toggleTool(TOOL_RESIZE);
 			}
 
 			if(edit)
 			{
 				// fa-copy, fa-cut, fa-paste
-				imgui::Button("\uf0c5 copy ");
-				imgui::Button("\uf0c4 cut ");
-				imgui::Button("\uf0ea paste ");
+				{
+					auto s = disabled_style(!ui::canCopyOrCut());
+					if(imgui::Button("c \uf0c5 copy "))
+						ui::performCopy(graph);
+
+					if(imgui::Button("x \uf0c4 cut "))
+						ui::performCut(graph);
+				}
+
+				{
+					auto s = disabled_style(!ui::canPaste() || ui::selection().empty());
+					if(imgui::Button("v \uf0ea paste "))
+						ui::performPaste(graph, ui::selection()[0]);
+				}
 			}
 		}
 
@@ -160,11 +172,10 @@ namespace ui
 
 				// static!
 				static char buf[17] = { };
-
 				auto s = disabled_style(!en || strlen(buf) == 0);
 
 				// fa-plus-circle
-				bool insert = imgui::Button("\uf055 insert "); imgui::SameLine();
+				bool insert = imgui::Button("1 \uf055 insert "); imgui::SameLine();
 
 				s.pop();
 				{
@@ -190,7 +201,7 @@ namespace ui
 
 				// fa-minus-circle
 				auto s = disabled_style(!en);
-				if(imgui::Button("\uf056 erase "))
+				if(imgui::Button("2 \uf056 erase "))
 				{
 					alpha::eraseFromEvenDepth(graph, sel[0]);
 					sel.clear();
@@ -206,14 +217,14 @@ namespace ui
 		{
 			{
 				auto s = disabled_style(sel.empty() || !sel.allSiblings());
-				if(imgui::Button("\uf5ff add "))
+				if(imgui::Button("3 \uf5ff add "))
 					alpha::insertDoubleCut(graph, sel);
 			}
 
 			{
 				auto enable = (sel.count() == 1 || (sel.count() > 1 && sel.allSiblings())) && hasDoubleCut(sel[0]);
 				auto s = disabled_style(!enable);
-				if(imgui::Button("\uf5fe remove "))
+				if(imgui::Button("4 \uf5fe remove "))
 					alpha::removeDoubleCut(graph, sel);
 			}
 		}
@@ -233,14 +244,14 @@ namespace ui
 				auto s = disabled_style(!en);
 
 				// crosshairs
-				if(imgui::Button(desel ? "\uf05b deselect " : "\uf05b select "))
+				if(imgui::Button(desel ? "5 \uf05b deselect " : "5 \uf05b select "))
 					alpha::selectTargetForIteration(graph, sel.count() == 1 ? sel[0] : nullptr);
 			}
 
 			{
 				// map-marker-plus
 				auto s = disabled_style(sel.count() != 1 || !alpha::canIterateInto(graph, sel[0]));
-				if(imgui::Button("\uf60a iterate "))
+				if(imgui::Button("6 \uf60a iterate "))
 					alpha::iterate(graph, sel[0]);
 			}
 
@@ -251,13 +262,12 @@ namespace ui
 
 				// map-marker-minus
 				auto s = disabled_style(sel.count() != 1 || !deiterable(sel[0]));
-				if(imgui::Button("\uf609 deiterate "))
+				if(imgui::Button("7 \uf609 deiterate "))
 					alpha::deiterate(graph, sel[0]);
 			}
 		}
 		imgui::Unindent();
 
-		imgui::NewLine();
 
 		if(alpha::haveIterationTarget(graph))
 		{
@@ -276,6 +286,43 @@ namespace ui
 
 	static void editing_tools(Graph* graph)
 	{
+		auto& theme = ui::theme();
+
+		imgui::Text("editing"); imgui::Dummy(lx::vec2(4));
+		imgui::Indent();
+
+		{
+			static char buf[17] = { };
+			auto s = disabled_style(strlen(buf) == 0);
+
+			// fa-plus-circle
+			bool insert = imgui::Button("1 \uf055 insert "); imgui::SameLine();
+
+			s.pop();
+			{
+				auto s = Styler();
+				imgui::SetNextItemWidth(64);
+				s.push(ImGuiCol_FrameBg, theme.tooltipBg);
+
+				imgui::InputTextWithHint("", " prop", buf, 16);
+			}
+
+			auto prop = std::string(buf, strlen(buf));
+		}
+
+
+		imgui::Unindent();
+
+		if(auto clips = ui::getClipboard().size(); clips > 0)
+		{
+			auto geom = geometry::get();
+
+			auto curs = imgui::GetCursorPos();
+			imgui::SetCursorPos(lx::vec2(curs.x, geom.sidebar.size.y - 34));
+			imgui::TextUnformatted(zpr::sprint("{} item{} copied", clips, clips == 1 ? "" : "s").c_str());
+
+			imgui::SetCursorPos(curs);
+		}
 	}
 
 

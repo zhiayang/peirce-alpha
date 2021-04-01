@@ -32,6 +32,8 @@ namespace ui
 	void enableTool(uint32_t tool);
 	bool toggleTool(uint32_t tool);
 
+	bool isTextFieldFocused();
+
 	// returns < 0 if we should quit, or else it returns the number of events processed.
 	int poll();
 
@@ -131,6 +133,8 @@ namespace ui
 	void performUndo(alpha::Graph* graph);
 	void performRedo(alpha::Graph* graph);
 
+	bool canPaste();
+	bool canCopyOrCut();
 
 	void performCopy(alpha::Graph* graph);
 	void performCut(alpha::Graph* graph);
