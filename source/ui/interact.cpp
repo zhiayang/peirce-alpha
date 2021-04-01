@@ -158,13 +158,29 @@ namespace ui
 
 		// imgui resets the cursor each frame, so we must re-set the cursor each frame.
 		{
+			// this is a bit of a hack, but only set the cursor if the cursor
+			// is in the bounds of the main graph area. this prevents us from setting
+			// the cursor to an arrow when hovering over a textinput.
+			bool can_reset_cursor = false;
+
+			{
+				auto geom = geometry::get();
+
+				auto mouse = imgui::GetMousePos();
+				auto min = geom.graph.pos;
+				auto max = geom.graph.pos + geom.graph.size;
+
+				if(mouse.x >= min.x && mouse.y >= min.y && mouse.x <= max.x && mouse.y <= max.y)
+					can_reset_cursor = true;
+			}
+
 			auto edge = state.resizingEdge;
 
 			if(edge == 2 || edge == 6)      ui::setCursor(ImGuiMouseCursor_ResizeNESW);
 			else if(edge == 4 || edge == 8) ui::setCursor(ImGuiMouseCursor_ResizeNWSE);
 			else if(edge == 1 || edge == 5) ui::setCursor(ImGuiMouseCursor_ResizeNS);
 			else if(edge == 3 || edge == 7) ui::setCursor(ImGuiMouseCursor_ResizeEW);
-			else                            ui::setCursor(ImGuiMouseCursor_Arrow);
+			else if(can_reset_cursor)       ui::setCursor(ImGuiMouseCursor_Arrow);
 		}
 
 		if(imgui::IsMouseDragging(ImGuiMouseButton_Left))

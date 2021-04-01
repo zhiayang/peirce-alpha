@@ -59,10 +59,6 @@ namespace ui
 
 		// relayout *after* doing interaction.
 		{
-			auto mouse = imgui::GetMousePos();
-			auto min = geom.graph.pos;
-			auto max = geom.graph.pos + geom.graph.size;
-
 			if(imgui::IsMousePosValid())
 				ui::interact(calc_origin(), graph);
 		}
