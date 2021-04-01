@@ -40,7 +40,7 @@ namespace ui
 		// no more actions.
 		if(state.actionIndex >= state.actions.size())
 		{
-			lg::log("ui", "no more actions to undo");
+			ui::logMessage("nothing left to undo", 1);
 			return;
 		}
 
@@ -53,6 +53,7 @@ namespace ui
 				for(auto item : action.items)
 				{
 					item->parent()->subs.push_back(item);
+					graph->flags |= FLAG_GRAPH_MODIFIED;
 					ui::relayout(graph, item);
 				}
 				break;
@@ -92,13 +93,23 @@ namespace ui
 				sel.clear();
 			} break;
 
-			case Action::INFER_INSERTION: {
+			case Action::INFER_INSERTION:
 				alpha::eraseFromEvenDepth(graph, action.items[0], /* log_action: */ false);
-			} break;
+				break;
 
-			case Action::INFER_ERASURE: {
+			case Action::INFER_ERASURE:
 				alpha::insertAtOddDepth(graph, action.oldParent, action.items[0], /* log_action: */ false);
-			} break;
+				break;
+
+			case Action::INFER_ITERATION:
+				alpha::eraseItemFromParent(action.items[0]);
+				break;
+
+			case Action::INFER_DEITERATION:
+				action.items[0]->parent()->subs.push_back(action.items[0]);
+				graph->flags |= FLAG_GRAPH_MODIFIED;
+				ui::relayout(graph, action.items[0]);
+				break;
 
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);
@@ -111,7 +122,7 @@ namespace ui
 		// no more actions.
 		if(state.actionIndex == 0)
 		{
-			lg::log("ui", "no more actions to redo");
+			ui::logMessage("nothing left to redo", 1);
 			return;
 		}
 
@@ -166,13 +177,23 @@ namespace ui
 				sel.clear();
 			} break;
 
-			case Action::INFER_INSERTION: {
+			case Action::INFER_INSERTION:
 				alpha::insertAtOddDepth(graph, action.oldParent, action.items[0], /* log_action: */ false);
-			} break;
+				break;
 
-			case Action::INFER_ERASURE: {
+			case Action::INFER_ERASURE:
 				alpha::eraseFromEvenDepth(graph, action.items[0], /* log_action: */ false);
-			} break;
+				break;
+
+			case Action::INFER_ITERATION:
+				action.items[0]->parent()->subs.push_back(action.items[0]);
+				graph->flags |= FLAG_GRAPH_MODIFIED;
+				ui::relayout(graph, action.items[0]);
+				break;
+
+			case Action::INFER_DEITERATION:
+				alpha::eraseItemFromParent(action.items[0]);
+				break;
 
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);

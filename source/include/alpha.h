@@ -92,8 +92,8 @@ namespace alpha
 	void insertAtOddDepth(Graph* graph, Item* parent, Item* item, bool log_action = true);
 	void eraseFromEvenDepth(Graph* graph, Item* item, bool log_action = true);
 
-	void iterate(Graph* graph, Item* target);
-	void deiterate(Graph* graph, Item* target);
+	void iterate(Graph* graph, Item* target, bool log_action = true);
+	void deiterate(Graph* graph, Item* target, bool log_action = true);
 
 	bool haveIterationTarget(Graph* graph);
 	void selectTargetForIteration(Graph* graph, Item* item);

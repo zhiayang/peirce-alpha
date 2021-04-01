@@ -61,7 +61,7 @@ namespace alpha
 			|| is_ancestor(selection, iter->parent()));
 	}
 
-	void iterate(Graph* graph, Item* target)
+	void iterate(Graph* graph, Item* target, bool log_action)
 	{
 		assert(canIterateInto(graph, target));
 
@@ -74,15 +74,33 @@ namespace alpha
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, iter);
+
+		if(log_action)
+		{
+			ui::performAction(ui::Action {
+				.type = ui::Action::INFER_ITERATION,
+				.items = { iter },
+				.oldParent = target
+			});
+		}
 	}
 
-	void deiterate(Graph* graph, Item* target)
+	void deiterate(Graph* graph, Item* target, bool log_action)
 	{
 		assert(graph->deiteration_targets.find(target) != graph->deiteration_targets.end());
 
 		eraseItemFromParent(target);
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, target);
+
+		if(log_action)
+		{
+			ui::performAction(ui::Action {
+				.type = ui::Action::INFER_DEITERATION,
+				.items = { target },
+				.oldParent = target->parent()
+			});
+		}
 	}
 
 	static void get_deiteration_targets(Graph* graph, std::set<const Item*>& tgts, const Item* thing)
