@@ -115,6 +115,10 @@ namespace ui
 
 		for(auto x : this->items)
 		{
+			// while we're here,  make sure all the things
+			// that we have selected are selected.
+			x->flags |= FLAG_SELECTED;
+
 			auto y = x->parent();
 			while(y)
 			{

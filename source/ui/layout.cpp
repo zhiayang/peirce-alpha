@@ -41,6 +41,18 @@ namespace ui
 		// }
 	}
 
+	static void calculate_size_for_var(Item* item)
+	{
+		if(item->isBox)
+			return;
+
+		auto _sz = imgui::CalcTextSize(item->name.c_str());
+		auto sz = lx::vec2(_sz.x, _sz.y);
+
+		item->content_offset = lx::vec2(OUTER_ITEM_PADDING);
+		item->size = sz + 2 * item->content_offset;
+	}
+
 	static void auto_layout(LayoutState& st, lx::vec2 pos, Item* item)
 	{
 		item->content_offset = lx::vec2(OUTER_ITEM_PADDING);
@@ -77,11 +89,8 @@ namespace ui
 		}
 		else
 		{
-			auto _sz = imgui::CalcTextSize(item->name.c_str());
-			auto sz = lx::vec2(_sz.x, _sz.y);
-
 			item->pos = pos;
-			item->size = sz + 2 * item->content_offset;
+			calculate_size_for_var(item);
 		}
 
 		st.stackHeights.back() = std::max(st.stackHeights.back(), item->size.y);
@@ -220,6 +229,11 @@ namespace ui
 				auto max_sz = br + 2 * lx::vec2(BOX_H_PADDING, BOX_V_PADDING) + 2 * box->content_offset;
 				box->size = lx::max(box->size, max_sz);
 			}
+		}
+		else
+		{
+			// for vars, we need to refresh their size.
+			calculate_size_for_var(box);
 		}
 
 		if(box->parent() != nullptr)

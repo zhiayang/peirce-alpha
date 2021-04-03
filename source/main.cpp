@@ -18,7 +18,7 @@ void ui::quit()
 static int counter = 0;
 void ui::continueDrawing()
 {
-	counter = 10;
+	counter = 60;
 }
 
 int main(int argc, char** argv)
@@ -29,19 +29,20 @@ int main(int argc, char** argv)
 	ui::init(/* title: */ "Peirce Alpha System");
 	ui::setup(/* ui scale: */ 2, /* font size: */ 18.0, ui::dark());
 
-	constexpr int CUTOFF = 30;
-
 	while(!quit)
 	{
 		using namespace std::chrono_literals;
 
 		auto n = ui::poll();
 
+		constexpr int CUTOFF = 30;
+
 		// don't draw unless we have events --- saves CPU. but, also update for a few more frames
 		// after the last event, so that keys/mouse won't get stuck on.
 		if(n < 0)
 			break;
 
+	#if 0
 		// use short-circuiting to check counter first, *then* decrement
 		else if(n > 0)
 			ui::update(), counter = -1;
@@ -54,6 +55,9 @@ int main(int argc, char** argv)
 
 		else if(counter == 0)
 			std::this_thread::sleep_for(16ms);  // target 60fps
+	#else
+		ui::update();
+	#endif
 	}
 
 	ui::stop();

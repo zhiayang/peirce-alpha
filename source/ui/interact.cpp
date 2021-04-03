@@ -35,6 +35,8 @@ namespace ui
 
 	static lx::vec2 compute_abs_pos(Item* item);
 
+	// defined in sidebar.cpp
+	const char* get_prop_name();
 
 	template <typename Cb>
 	static void for_each_item(Item* item, Cb&& cb)
@@ -74,6 +76,17 @@ namespace ui
 		return state.clipboard;
 	}
 
+	bool is_mouse_in_bounds()
+	{
+		auto geom = geometry::get();
+
+		auto mouse = imgui::GetMousePos();
+		auto min = geom.graph.pos;
+		auto max = geom.graph.pos + geom.graph.size;
+
+		return (mouse.x >= min.x && mouse.y >= min.y && mouse.x <= max.x && mouse.y <= max.y);
+	}
+
 	void interact(lx::vec2 origin, Graph* graph)
 	{
 		auto mouse = imgui::GetMousePos() - origin;
@@ -81,7 +94,12 @@ namespace ui
 		// reset this flag.
 		graph->flags &= ~FLAG_GRAPH_MODIFIED;
 
-		if(imgui::IsMouseClicked(ImGuiMouseButton_Left))
+		// a flag that the mouse is in the graphical area. we don't want to limit keyboard shortcuts
+		// to only trigger when the mouse is in the graph area, but at the same time we don't want
+		// to deselect stuff if we click one of the tool buttons.
+		bool mouse_in_bounds = is_mouse_in_bounds();
+
+		if(mouse_in_bounds && imgui::IsMouseClicked(ImGuiMouseButton_Left))
 		{
 			if(auto hit = hit_test(mouse, &graph->box, /* only_boxes: */ false);
 				hit != nullptr && !(hit->flags & FLAG_ROOT))
@@ -99,7 +117,7 @@ namespace ui
 		}
 
 		// only hover things if the mouse is up.
-		if(!imgui::IsMouseDown(ImGuiMouseButton_Left))
+		if(mouse_in_bounds && !imgui::IsMouseDown(ImGuiMouseButton_Left))
 		{
 			// unhover everything
 			for_each_item(&graph->box, [](auto item) { item->flags &= ~FLAG_MOUSE_HOVER; });
@@ -108,6 +126,7 @@ namespace ui
 		}
 
 		handle_shortcuts(mouse, graph);
+
 
 		// note: handle selected things first, so that if something is deleted in this frame,
 		// the cursor doesn't lag for one frame.
@@ -158,29 +177,13 @@ namespace ui
 
 		// imgui resets the cursor each frame, so we must re-set the cursor each frame.
 		{
-			// this is a bit of a hack, but only set the cursor if the cursor
-			// is in the bounds of the main graph area. this prevents us from setting
-			// the cursor to an arrow when hovering over a textinput.
-			bool can_reset_cursor = false;
-
-			{
-				auto geom = geometry::get();
-
-				auto mouse = imgui::GetMousePos();
-				auto min = geom.graph.pos;
-				auto max = geom.graph.pos + geom.graph.size;
-
-				if(mouse.x >= min.x && mouse.y >= min.y && mouse.x <= max.x && mouse.y <= max.y)
-					can_reset_cursor = true;
-			}
-
 			auto edge = state.resizingEdge;
 
 			if(edge == 2 || edge == 6)      ui::setCursor(ImGuiMouseCursor_ResizeNESW);
 			else if(edge == 4 || edge == 8) ui::setCursor(ImGuiMouseCursor_ResizeNWSE);
 			else if(edge == 1 || edge == 5) ui::setCursor(ImGuiMouseCursor_ResizeNS);
 			else if(edge == 3 || edge == 7) ui::setCursor(ImGuiMouseCursor_ResizeEW);
-			else if(can_reset_cursor)       ui::setCursor(ImGuiMouseCursor_Arrow);
+			else if(mouse_in_bounds)        ui::setCursor(ImGuiMouseCursor_Arrow);
 		}
 
 		if(imgui::IsMouseDragging(ImGuiMouseButton_Left))
@@ -205,12 +208,12 @@ namespace ui
 		});
 
 		for(auto x : state.selection)
-			eraseItemFromParent(x);
+			eraseItemFromParent(graph, x);
 
 		state.selection.clear();
 	}
 
-	void performPaste(alpha::Graph* graph, alpha::Item* paste_into)
+	void performPaste(alpha::Graph* graph, alpha::Item* paste_into, lx::vec2* position_hint)
 	{
 		std::vector<alpha::Item*> clones;
 		for(auto x : state.clipboard)
@@ -221,7 +224,10 @@ namespace ui
 		paste_into->subs.insert(paste_into->subs.begin(), clones.begin(), clones.end());
 		for(auto x : clones)
 		{
-			if(x->parent() != paste_into)
+			if(position_hint != nullptr)
+				x->pos = *position_hint;
+
+			else if(x->parent() != paste_into)
 				x->pos = lx::vec2(0, 0);
 
 			x->setParent(paste_into);
@@ -243,7 +249,10 @@ namespace ui
 
 	bool canPaste()
 	{
-		return state.clipboard.size() > 0;
+		return state.clipboard.size() > 0
+			&& (selection().count() == 1
+				|| (selection().empty() && is_mouse_in_bounds())
+			);
 	}
 
 	bool canCopyOrCut()
@@ -251,8 +260,41 @@ namespace ui
 		return !state.selection.empty();
 	}
 
+
+	// ...
+	static std::pair<Item*, lx::vec2> get_single_selected_box_or_mouse_hover_box(const lx::vec2& mouse, Graph* graph)
+	{
+		Item* drop = nullptr;
+		if(state.selection.empty())
+		{
+			drop = hit_test(mouse, &graph->box, /* only_boxes: */ true);
+			if(drop == nullptr)
+				drop = &graph->box;
+		}
+		else if(state.selection.count() == 1)
+		{
+			// if you have more than one thing selected, idk where tf to paste to, so i won't.
+			drop = state.selection[0];
+		}
+
+		if(drop == nullptr)
+			return { nullptr, lx::vec2() };
+
+		if(!drop->isBox)
+			drop = drop->parent();
+
+		auto drop_abs_pos = compute_abs_pos(drop);
+		auto pos = mouse - drop_abs_pos - drop->content_offset;
+
+		return { drop, pos };
+	}
+
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph)
 	{
+		constexpr bool REQUIRE_MODS = false;
+		if(imgui::GetIO().WantTextInput)
+			return;
+
 		if(is_char_pressed('e'))
 		{
 			ui::toggleTool(TOOL_EDIT);
@@ -265,72 +307,141 @@ namespace ui
 		{
 			ui::toggleTool(TOOL_RESIZE);
 		}
-		else if(toolEnabled(TOOL_EDIT) && !state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
-		{
-			ui::performAction(Action {
-				.type   = Action::DELETE,
-				.items  = state.selection.get()
-			});
-
-			// first, remove it from its parent
-			for(auto x : state.selection)
-				eraseItemFromParent(x);
-
-			// unselect it.
-			state.selection.clear();
-
-			graph->flags |= FLAG_GRAPH_MODIFIED;
-		}
 		else if(is_key_pressed(SDL_SCANCODE_ESCAPE))
 		{
 			state.selection.clear();
 		}
-		else if(toolEnabled(TOOL_EDIT) && !state.selection.empty() && (is_char_pressed('x')
-			|| is_char_pressed('c')) && (has_cmd() || has_ctrl()))
-		{
-			if(is_char_pressed('c')) performCopy(graph);
-			else                     performCut(graph);
-		}
-		else if(toolEnabled(TOOL_EDIT) && is_char_pressed('v') && (has_cmd() || has_ctrl()))
-		{
-			// if you have more than one thing selected, idk where tf to paste to, so i won't.
-			if(state.selection.count() > 1)
-				return;
-
-			alpha::Item* drop = nullptr;
-
-			// if there's nothing selected, use the mouse position.
-			if(state.selection.empty())
-			{
-				drop = hit_test(mouse, &graph->box, /* only_boxes: */ true);
-				if(drop == nullptr)
-					drop = &graph->box;
-			}
-			else
-			{
-				drop = state.selection[0];
-			}
-
-			if(drop == nullptr)
-				return;
-
-			if(!drop->isBox)
-				drop = drop->parent();
-
-			performPaste(graph, drop);
-		}
 		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && !has_shift()))
 		{
 			performUndo(graph);
+			ui::flashSidebarButton(SB_BUTTON_UNDO);
 		}
 		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && has_shift()))
 		{
 			performRedo(graph);
+			ui::flashSidebarButton(SB_BUTTON_REDO);
 		}
 		else if(is_char_pressed('q') && (has_ctrl()))
 		{
 			lg::log("ui", "quitting");
 			ui::quit();
+		}
+		else if(ui::toolEnabled(TOOL_EDIT))
+		{
+			if(!state.selection.empty() && (is_char_pressed('x') || is_char_pressed('c')) && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
+			{
+				if(is_char_pressed('c'))
+				{
+					performCopy(graph);
+					ui::flashSidebarButton(SB_BUTTON_COPY);
+				}
+				else
+				{
+					performCut(graph);
+					ui::flashSidebarButton(SB_BUTTON_CUT);
+				}
+			}
+			else if(is_char_pressed('v') && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
+			{
+				auto [ drop, pos ] = get_single_selected_box_or_mouse_hover_box(mouse, graph);
+				if(drop == nullptr)
+					return;
+
+				performPaste(graph, drop, &pos);
+				ui::flashSidebarButton(SB_BUTTON_PASTE);
+			}
+			else if(!state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
+			{
+				ui::performAction(Action {
+					.type   = Action::DELETE,
+					.items  = state.selection.get()
+				});
+
+				// first, remove it from its parent
+				for(auto x : state.selection)
+					eraseItemFromParent(graph, x);
+
+				// unselect it.
+				state.selection.clear();
+
+				graph->flags |= FLAG_GRAPH_MODIFIED;
+				ui::flashSidebarButton(SB_BUTTON_E_DELETE);
+			}
+			else if(is_char_pressed('1'))
+			{
+				auto name = ui::get_prop_name();
+				if(strlen(name) == 0)
+					return;
+
+				auto [ drop, pos ] = get_single_selected_box_or_mouse_hover_box(mouse, graph);
+				if(drop == nullptr)
+					return;
+
+				auto thing = Item::var(name);
+				thing->pos = pos;
+
+				alpha::insert(graph, drop, thing);
+				ui::flashSidebarButton(SB_BUTTON_E_INSERT);
+			}
+			else if(is_char_pressed('2'))
+			{
+				auto [ drop, pos ] = get_single_selected_box_or_mouse_hover_box(mouse, graph);
+				if(drop == nullptr)
+					return;
+
+				alpha::insertEmptyBox(graph, drop, pos);
+				ui::flashSidebarButton(SB_BUTTON_E_ADD_BOX);
+			}
+			else if(is_char_pressed('3'))
+			{
+				if(selection().empty() && !selection().allSiblings())
+					return;
+
+				alpha::surround(graph, selection());
+				ui::flashSidebarButton(SB_BUTTON_E_SURROUND);
+			}
+		}
+		else
+		{
+			// note that the alpha::canFooBar functions check the size of the selection,
+			// so that if we need to access sel[0], we know it exists.
+
+			auto& sel = selection();
+			if(is_char_pressed('1') && alpha::canInsert(graph, ui::get_prop_name()))
+			{
+				alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(ui::get_prop_name()));
+				ui::flashSidebarButton(SB_BUTTON_INSERT);
+			}
+			else if(is_char_pressed('2') && alpha::canErase(graph))
+			{
+				alpha::eraseFromEvenDepth(graph, sel[0]);
+				ui::flashSidebarButton(SB_BUTTON_ERASE);
+			}
+			else if(is_char_pressed('3') && alpha::canInsertDoubleCut(graph))
+			{
+				alpha::insertDoubleCut(graph, sel);
+				ui::flashSidebarButton(SB_BUTTON_DBL_ADD);
+			}
+			else if(is_char_pressed('4') && alpha::canRemoveDoubleCut(graph))
+			{
+				alpha::removeDoubleCut(graph, sel);
+				ui::flashSidebarButton(SB_BUTTON_DBL_DEL);
+			}
+			else if(is_char_pressed('5') && alpha::canSelect(graph))
+			{
+				alpha::selectTargetForIteration(graph, sel.count() == 1 ? sel[0] : nullptr);
+				ui::flashSidebarButton(SB_BUTTON_SELECT);
+			}
+			else if(is_char_pressed('6') && alpha::canIterate(graph))
+			{
+				alpha::iterate(graph, sel[0]);
+				ui::flashSidebarButton(SB_BUTTON_ITER);
+			}
+			else if(is_char_pressed('7') && alpha::canDeiterate(graph))
+			{
+				alpha::deiterate(graph, sel[0]);
+				ui::flashSidebarButton(SB_BUTTON_DEITER);
+			}
 		}
 	}
 
@@ -360,7 +471,7 @@ namespace ui
 				.oldPos     = item->pos,
 			});
 
-			eraseItemFromParent(item);
+			eraseItemFromParent(graph, item);
 
 			// also, recalculate its position relative to its new parent.
 			auto old_abs_pos = compute_abs_pos(item);
@@ -557,7 +668,7 @@ namespace ui
 
 	static bool is_char_pressed(char key)
 	{
-		if(ui::isTextFieldFocused())
+		if(imgui::GetIO().WantTextInput)
 			return false;
 
 		if('A' <= key && key <= 'Z')    return imgui::IsKeyPressed(SDL_SCANCODE_A + (key - 'A'));
@@ -570,7 +681,7 @@ namespace ui
 
 	static bool is_key_pressed(uint32_t scancode)
 	{
-		if(ui::isTextFieldFocused())
+		if(imgui::GetIO().WantTextInput)
 			return false;
 
 		return imgui::IsKeyPressed(scancode);

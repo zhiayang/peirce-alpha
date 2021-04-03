@@ -138,8 +138,10 @@ namespace ui
 			// draw an underline so it's easier to see.
 			if(is_deiterable || item->flags & (FLAG_SELECTED | FLAG_MOUSE_HOVER | FLAG_ITERATION_TARGET))
 			{
-				dl->AddLine(origin + item->pos + lx::vec2(3, item->size.y - 2),
-					origin + item->pos + item->size - lx::vec2(3, 2), outlineColour.u32(), 2);
+				dl->AddLine(
+					origin + item->pos + lx::vec2(3, item->size.y - 2),
+					origin + item->pos + lx::vec2(item->size.x - 5, item->size.y - 2),
+					outlineColour.u32(), 2);
 			}
 		}
 	}

@@ -19,6 +19,29 @@ namespace ui
 	static Styler disabled_style(bool disabled);
 	static Styler toggle_enabled_style(bool enabled);
 
+
+	static constexpr int FLASH_FRAMES = 6;
+
+	static char propNameBuf[16];
+	static size_t PROP_NAME_LEN = 16;
+
+	static std::unordered_map<int, int> buttonFlashCounters;
+
+	void flashSidebarButton(int button)
+	{
+		buttonFlashCounters[button] = FLASH_FRAMES;
+		ui::continueDrawing();
+	}
+
+	static Styler flash_style(int button)
+	{
+		return toggle_enabled_style(buttonFlashCounters[button] > 0);
+	}
+
+	// declared in interact.cpp
+	const char* get_prop_name() { return propNameBuf; }
+	bool is_mouse_in_bounds();
+
 	void draw_sidebar(Graph* graph)
 	{
 		(void) graph;
@@ -59,6 +82,17 @@ namespace ui
 		else                        inference_tools(graph);
 
 		imgui::End();
+
+		/*
+			As an aside, the reason none of this code has to handle the mouse-cursor case
+			(eg. when you want to paste at a mouse position) is because in order to click
+			the button, your mouse must be outside of the graph area. so we can always
+			enforce the "needs something selected" constraint here.
+		*/
+
+		// update all the flash counters
+		for(auto& [ _, ctr ] : buttonFlashCounters)
+			if(ctr > 0) ctr -= 1;
 	}
 
 
@@ -75,14 +109,24 @@ namespace ui
 			s.push(ImGuiStyleVar_FrameRounding, 2);
 
 			// fa-undo-alt
-			imgui::SetCursorPos(cursor + lx::vec2(135, -4));
-			if(imgui::Button("\uf2ea"))
-				ui::performUndo(graph);
+			{
+				auto s = disabled_style(!ui::canUndo());
+				auto ss = flash_style(SB_BUTTON_UNDO);
+
+				imgui::SetCursorPos(cursor + lx::vec2(135, -4));
+				if(imgui::Button("\uf2ea"))
+					ui::performUndo(graph);
+			}
 
 			// fa-redo-alt
-			imgui::SetCursorPos(cursor + lx::vec2(165, -4));
-			if(imgui::Button("\uf2f9"))
-				ui::performRedo(graph);
+			{
+				auto s = disabled_style(!ui::canRedo());
+				auto ss = flash_style(SB_BUTTON_REDO);
+
+				imgui::SetCursorPos(cursor + lx::vec2(165, -4));
+				if(imgui::Button("\uf2f9"))
+					ui::performRedo(graph);
+			}
 		}
 
 		imgui::Dummy(lx::vec2(4));
@@ -105,10 +149,11 @@ namespace ui
 				if(imgui::Button("m \uf047 move "))
 					ui::toggleTool(TOOL_MOVE);
 
-				if(auto& s = ui::selection(); s.count() == 1 && s[0]->flags & FLAG_DETACHED)
+				// obviously only show the detached thingy when in edit mode
+				if(imgui::GetIO().KeyAlt && ui::toolEnabled(TOOL_EDIT))
 				{
 					auto ss = Styler(); ss.push(ImGuiCol_Text, theme.boxSelection);
-					imgui::SameLine(130);
+					imgui::SameLine(138);
 					imgui::Text("detached");
 				}
 			}
@@ -125,15 +170,22 @@ namespace ui
 				// fa-copy, fa-cut, fa-paste
 				{
 					auto s = disabled_style(!ui::canCopyOrCut());
-					if(imgui::Button("c \uf0c5 copy "))
-						ui::performCopy(graph);
+					{
+						auto ss = flash_style(SB_BUTTON_COPY);
+						if(imgui::Button("c \uf0c5 copy "))
+							ui::performCopy(graph);
+					}
 
-					if(imgui::Button("x \uf0c4 cut "))
-						ui::performCut(graph);
+					{
+						auto ss = flash_style(SB_BUTTON_CUT);
+						if(imgui::Button("x \uf0c4 cut "))
+							ui::performCut(graph);
+					}
 				}
 
 				{
-					auto s = disabled_style(!ui::canPaste() || ui::selection().empty());
+					auto s = disabled_style(!ui::canPaste());
+					auto ss = flash_style(SB_BUTTON_PASTE);
 					if(imgui::Button("v \uf0ea paste "))
 						ui::performPaste(graph, ui::selection()[0]);
 				}
@@ -143,69 +195,55 @@ namespace ui
 		imgui::Unindent();
 	}
 
+	// since we need to reuse this button in two places, and it's a  little bit of a hassle,
+	// factor it out. if the button was clicked, it returns the prop name; else it returns empty.
+	static zbuf::str_view insert_prop_button(int shortcut_num, bool enabled)
+	{
+		auto& theme = ui::theme();
+		auto s = disabled_style(!enabled || strlen(propNameBuf) == 0);
+		auto ss = flash_style(SB_BUTTON_INSERT);
+
+		char button_text[] = "_ \uf055 insert ";
+		button_text[0] = shortcut_num + '0';
+
+		bool insert = imgui::Button(button_text); imgui::SameLine();
+		s.pop();
+		ss.pop();
+
+		{
+			auto s = Styler();
+			imgui::SetNextItemWidth(64);
+			s.push(ImGuiCol_FrameBg, theme.tooltipBg);
+			imgui::InputTextWithHint("", " prop", propNameBuf, PROP_NAME_LEN);
+		}
+
+		if(insert)
+			return zbuf::str_view(propNameBuf, strlen(propNameBuf));
+
+		else
+			return { };
+	}
+
+
 
 	static void inference_tools(Graph* graph)
 	{
 		auto geom = geometry::get();
-		auto& theme = ui::theme();
 		auto& sel = selection();
 
 		imgui::Text("inference"); imgui::Dummy(lx::vec2(4));
 		imgui::Indent();
 		{
 			// insert anything into an odd depth
-			{
-				/*
-					the thing is, we are placing in a box --- so the "final resting place"
-					of the inserted item is actually 1 + the depth of the box -- so we
-					need to check that the box is an even depth!
-
-					the other good thing is that we don't need to handle the case where we want
-					to insert into the outermost "grid" (ie. the field itself) because anything
-					added there will be at an even depth -- so the inference rule prevents that
-					from happening entirely.
-				*/
-				auto en = sel.count() == 1
-					&& sel[0]->isBox
-					&& sel[0]->depth() % 2 == 0;
-
-
-				// static!
-				static char buf[17] = { };
-				auto s = disabled_style(!en || strlen(buf) == 0);
-
-				// fa-plus-circle
-				bool insert = imgui::Button("1 \uf055 insert "); imgui::SameLine();
-
-				s.pop();
-				{
-					auto s = Styler();
-					imgui::SetNextItemWidth(64);
-					s.push(ImGuiCol_FrameBg, theme.tooltipBg);
-
-					imgui::InputTextWithHint("", " prop", buf, 16);
-				}
-
-				auto prop = std::string(buf, strlen(buf));
-
-				if(insert)
-				{
-					alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(prop));
-				}
-			}
+			if(auto prop = insert_prop_button(1, alpha::canInsert(graph, propNameBuf)); !prop.empty())
+				alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(prop));
 
 			{
-				// erase anything from an even depth
-				auto en = sel.count() == 1
-					&& sel[0]->depth() % 2 == 0;
-
 				// fa-minus-circle
-				auto s = disabled_style(!en);
+				auto s = disabled_style(!alpha::canErase(graph));
+				auto ss = flash_style(SB_BUTTON_ERASE);
 				if(imgui::Button("2 \uf056 erase "))
-				{
 					alpha::eraseFromEvenDepth(graph, sel[0]);
-					sel.clear();
-				}
 			}
 		}
 		imgui::Unindent();
@@ -216,14 +254,15 @@ namespace ui
 		imgui::Indent();
 		{
 			{
-				auto s = disabled_style(sel.empty() || !sel.allSiblings());
+				auto s = disabled_style(!alpha::canInsertDoubleCut(graph));
+				auto ss = flash_style(SB_BUTTON_DBL_ADD);
 				if(imgui::Button("3 \uf5ff add "))
 					alpha::insertDoubleCut(graph, sel);
 			}
 
 			{
-				auto enable = (sel.count() == 1 || (sel.count() > 1 && sel.allSiblings())) && hasDoubleCut(sel[0]);
-				auto s = disabled_style(!enable);
+				auto s = disabled_style(!alpha::canRemoveDoubleCut(graph));
+				auto ss = flash_style(SB_BUTTON_DBL_DEL);
 				if(imgui::Button("4 \uf5fe remove "))
 					alpha::removeDoubleCut(graph, sel);
 			}
@@ -238,30 +277,25 @@ namespace ui
 			{
 				bool desel = (sel.count() == 0 && graph->iteration_target != nullptr);
 
-				// if the selection is empty, make it deselect; selectTargetForIteration knows
-				// how to handle nullptrs.
-				auto en = (sel.count() == 1) || desel;
-				auto s = disabled_style(!en);
-
 				// crosshairs
+				auto s = disabled_style(!alpha::canSelect(graph));
+				auto ss = flash_style(SB_BUTTON_SELECT);
 				if(imgui::Button(desel ? "5 \uf05b deselect " : "5 \uf05b select "))
 					alpha::selectTargetForIteration(graph, sel.count() == 1 ? sel[0] : nullptr);
 			}
 
 			{
 				// map-marker-plus
-				auto s = disabled_style(sel.count() != 1 || !alpha::canIterateInto(graph, sel[0]));
+				auto s = disabled_style(!alpha::canIterate(graph));
+				auto ss = flash_style(SB_BUTTON_ITER);
 				if(imgui::Button("6 \uf60a iterate "))
 					alpha::iterate(graph, sel[0]);
 			}
 
 			{
-				auto deiterable = [&](const Item* item) -> bool {
-					return graph->deiteration_targets.find(item) != graph->deiteration_targets.end();
-				};
-
 				// map-marker-minus
-				auto s = disabled_style(sel.count() != 1 || !deiterable(sel[0]));
+				auto s = disabled_style(!alpha::canDeiterate(graph));
+				auto ss = flash_style(SB_BUTTON_DEITER);
 				if(imgui::Button("7 \uf609 deiterate "))
 					alpha::deiterate(graph, sel[0]);
 			}
@@ -286,30 +320,43 @@ namespace ui
 
 	static void editing_tools(Graph* graph)
 	{
-		auto& theme = ui::theme();
+		auto& sel = selection();
 
 		imgui::Text("editing"); imgui::Dummy(lx::vec2(4));
 		imgui::Indent();
 
 		{
-			static char buf[17] = { };
-			auto s = disabled_style(strlen(buf) == 0);
-
-			// fa-plus-circle
-			bool insert = imgui::Button("1 \uf055 insert "); imgui::SameLine();
-
-			s.pop();
+			auto s = disabled_style(selection().empty());
+			auto ss = flash_style(SB_BUTTON_E_DELETE);
+			if(imgui::Button("  \uf55a delete "))
 			{
-				auto s = Styler();
-				imgui::SetNextItemWidth(64);
-				s.push(ImGuiCol_FrameBg, theme.tooltipBg);
-
-				imgui::InputTextWithHint("", " prop", buf, 16);
+				auto items = sel.get();
+				for(auto i : items)
+					alpha::eraseItemFromParent(graph, i);
 			}
-
-			auto prop = std::string(buf, strlen(buf));
 		}
 
+		{
+			bool en = sel.count() == 1 || (sel.empty() && is_mouse_in_bounds());
+			if(auto prop = insert_prop_button(1, en); !prop.empty() && en)
+				alpha::insert(graph, sel[0], Item::var(prop));
+		}
+
+		{
+			bool en = sel.count() == 1 || (sel.empty() && is_mouse_in_bounds());
+			auto s = disabled_style(!en);
+			auto ss = flash_style(SB_BUTTON_E_ADD_BOX);
+			if(imgui::Button("2 \uf0fe add cut "))
+				alpha::insertEmptyBox(graph, sel[0], lx::vec2(0, 0));
+		}
+
+		{
+			bool en = !sel.empty() && sel.allSiblings();
+			auto s = disabled_style(!en);
+			auto ss = flash_style(SB_BUTTON_E_SURROUND);
+			if(imgui::Button("3 \uf853 surround cut "))
+				alpha::surround(graph, sel);
+		}
 
 		imgui::Unindent();
 

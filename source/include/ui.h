@@ -127,18 +127,21 @@ namespace ui
 		static constexpr int INFER_ERASURE          = 8;
 		static constexpr int INFER_ITERATION        = 9;
 		static constexpr int INFER_DEITERATION      = 10;
+		static constexpr int EDIT_SURROUND          = 11;
 	};
 
 	void performAction(Action action);
 	void performUndo(alpha::Graph* graph);
 	void performRedo(alpha::Graph* graph);
+	bool canUndo();
+	bool canRedo();
 
 	bool canPaste();
 	bool canCopyOrCut();
 
 	void performCopy(alpha::Graph* graph);
 	void performCut(alpha::Graph* graph);
-	void performPaste(alpha::Graph* graph, alpha::Item* paste_into);
+	void performPaste(alpha::Graph* graph, alpha::Item* paste_into, lx::vec2* position_hint = nullptr);
 
 	Theme dark();
 	Theme light();
@@ -198,6 +201,32 @@ namespace ui
 		int flags = 0;
 		int colours = 0;
 	};
+
+	// weird stuff.
+	constexpr int SB_BUTTON_UNDO        = 1;
+	constexpr int SB_BUTTON_REDO        = 2;
+	// constexpr int SB_BUTTON_MOVE    = 3;        since these are toggle buttons already, we don't
+	// constexpr int SB_BUTTON_RESIZE  = 4;        really need to flash them at all.
+	constexpr int SB_BUTTON_COPY        = 5;
+	constexpr int SB_BUTTON_CUT         = 6;
+	constexpr int SB_BUTTON_PASTE       = 7;
+
+	constexpr int SB_BUTTON_INSERT      = 101;
+	constexpr int SB_BUTTON_ERASE       = 102;
+	constexpr int SB_BUTTON_DBL_ADD     = 103;
+	constexpr int SB_BUTTON_DBL_DEL     = 104;
+	constexpr int SB_BUTTON_SELECT      = 105;
+	constexpr int SB_BUTTON_ITER        = 106;
+	constexpr int SB_BUTTON_DEITER      = 107;
+
+	constexpr int SB_BUTTON_E_DELETE    = 201;
+	constexpr int SB_BUTTON_E_INSERT    = SB_BUTTON_INSERT;
+	constexpr int SB_BUTTON_E_ADD_BOX   = 203;
+	constexpr int SB_BUTTON_E_SURROUND  = 204;
+
+	void flashSidebarButton(int button);
+
+
 
 	namespace geometry
 	{

@@ -2,12 +2,14 @@
 // Copyright (c) 2021, zhiayang
 // Licensed under the Apache License Version 2.0.
 
+#include <string.h>
+
 #include "ui.h"
 #include "alpha.h"
 
 namespace alpha
 {
-	void eraseItemFromParent(Item* item)
+	void eraseItemFromParent(Graph* graph, Item* item)
 	{
 		auto parent = item->parent();
 		assert(parent != nullptr);
@@ -15,6 +17,20 @@ namespace alpha
 		auto it = std::find(parent->subs.begin(), parent->subs.end(), item);
 		assert(it != parent->subs.end());
 		parent->subs.erase(it);
+
+		ui::selection().remove(item);       // automatically deselect it
+		ui::selection().refresh();          // if necessary
+
+		// more safety stuff -- if it was an iteration target,
+		// we need to clear the graph's cached deiteration targets
+		if(item->flags & FLAG_ITERATION_TARGET)
+		{
+			graph->iteration_target = nullptr;
+			graph->deiteration_targets = alpha::getDeiterationTargets(graph);
+		}
+
+		// note: we shouldn't need to remove it from deiteration_targets,
+		// since you have no way to 'access' the item after you delete it.
 	}
 
 
@@ -74,6 +90,7 @@ namespace alpha
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, iter);
+		ui::selection().refresh();
 
 		if(log_action)
 		{
@@ -89,9 +106,10 @@ namespace alpha
 	{
 		assert(graph->deiteration_targets.find(target) != graph->deiteration_targets.end());
 
-		eraseItemFromParent(target);
+		eraseItemFromParent(graph, target);
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, target);
+		ui::selection().refresh();
 
 		if(log_action)
 		{
@@ -142,8 +160,9 @@ namespace alpha
 		item->setParent(parent);
 		parent->subs.push_back(item);
 
-		graph->flags |= (FLAG_GRAPH_MODIFIED | FLAG_FORCE_AUTO_LAYOUT);
+		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, item);
+		ui::selection().refresh();
 
 		if(log_action)
 		{
@@ -157,10 +176,12 @@ namespace alpha
 
 	void eraseFromEvenDepth(Graph* graph, Item* item, bool log_action)
 	{
-		eraseItemFromParent(item);
+		eraseItemFromParent(graph, item);
 
+		item->flags &= ~FLAG_SELECTED;
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		ui::relayout(graph, item);
+		ui::selection().refresh();
 
 		if(log_action)
 		{
@@ -181,7 +202,7 @@ namespace alpha
 			return;
 
 		for(auto item : sel)
-			eraseItemFromParent(item);
+			eraseItemFromParent(graph, item);
 
 		auto oldp = sel[0]->parent();
 
@@ -224,7 +245,7 @@ namespace alpha
 		// eraseItemFromParent at the same time...
 		auto siblings = p->subs;
 		for(auto sibling : siblings)
-			eraseItemFromParent(sibling);
+			eraseItemFromParent(graph, sibling);
 
 		for(auto sibling : siblings)
 		{
@@ -234,8 +255,8 @@ namespace alpha
 
 		// now we can yeet the parent and the grandparent.
 		// TODO: this leaks the heck out of the memory
-		eraseItemFromParent(p);
-		eraseItemFromParent(gp);
+		eraseItemFromParent(graph, p);
+		eraseItemFromParent(graph, gp);
 
 		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
 		sel.refresh();
@@ -269,5 +290,116 @@ namespace alpha
 		// note that siblings are ok -- they'll just get their double cut removed also.
 		return gp->subs.size() == 1
 			&& gp->subs[0] == p;
+	}
+
+
+
+	bool canInsertDoubleCut(Graph* graph)
+	{
+		auto& sel = ui::selection();
+		return !sel.empty() && sel.allSiblings();
+	}
+
+	bool canRemoveDoubleCut(Graph* graph)
+	{
+		auto& sel = ui::selection();
+		return (sel.count() == 1 || (sel.count() > 1 && sel.allSiblings()))
+			&& hasDoubleCut(sel[0]);
+	}
+
+	bool canInsert(Graph* graph, const char* name)
+	{
+		auto& sel = ui::selection();
+		/*
+			the thing is, we are placing in a box --- so the "final resting place"
+			of the inserted item is actually 1 + the depth of the box -- so we
+			need to check that the box is an even depth!
+
+			the other good thing is that we don't need to handle the case where we want
+			to insert into the outermost "grid" (ie. the field itself) because anything
+			added there will be at an even depth -- so the inference rule prevents that
+			from happening entirely.
+		*/
+		return sel.count() == 1
+			&& sel[0]->isBox
+			&& sel[0]->depth() % 2 == 0
+			&& strlen(name) > 0;
+	}
+
+	bool canErase(Graph* graph)
+	{
+		auto& sel = ui::selection();
+
+		// erase anything from an even depth
+		return sel.count() == 1 && sel[0]->depth() % 2 == 0;
+	}
+
+	bool canSelect(Graph* graph)
+	{
+		auto& sel = ui::selection();
+		bool desel = (sel.count() == 0 && graph->iteration_target != nullptr);
+
+		// if the selection is empty, make it deselect; selectTargetForIteration knows
+		// how to handle nullptrs.
+		return (sel.count() == 1) || desel;
+	}
+
+	bool canIterate(Graph* graph)
+	{
+		auto& sel = ui::selection();
+		return sel.count() == 1 && alpha::canIterateInto(graph, sel[0]);
+	}
+
+	bool canDeiterate(Graph* graph)
+	{
+		auto& sel = ui::selection();
+		auto deiterable = [&](const Item* item) -> bool {
+			return graph->deiteration_targets.find(item) != graph->deiteration_targets.end();
+		};
+
+		// map-marker-minus
+		return (sel.count() == 1 && deiterable(sel[0]));
+	}
+
+
+
+	// editing stuff
+	void insert(Graph* graph, Item* parent, Item* item)
+	{
+		// fun fact -- insertAtOddDepth does not check the depth.
+		insertAtOddDepth(graph, parent, item, /* log_action: */	true);
+	}
+
+	void insertEmptyBox(Graph* graph, Item* parent, const lx::vec2& pos)
+	{
+		auto thing = Item::box({ });
+		thing->pos = pos;
+		thing->size = lx::vec2(30, 30);
+
+		alpha::insert(graph, parent, thing);
+	}
+
+	void surround(Graph* graph, const ui::Selection& sel)
+	{
+		if(sel.empty() || !sel.allSiblings())
+			return;
+
+		auto items = sel.get();
+		for(auto item : items)
+			eraseItemFromParent(graph, item);
+
+		auto oldp = items[0]->parent();
+
+		auto p = Item::box(items);  // box() sets the parent of the stuff automatically
+		p->setParent(oldp);
+		oldp->subs.push_back(p);
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+		ui::relayout(graph, p);
+
+		ui::performAction(ui::Action {
+			.type   = ui::Action::EDIT_SURROUND,
+			.items  = items
+		});
 	}
 }

@@ -83,7 +83,7 @@ namespace alpha
 		Graph& operator= (const Graph&) = delete;
 	};
 
-	void eraseItemFromParent(Item* item);
+	void eraseItemFromParent(Graph* graph, Item* item);
 
 	// inference rules
 	void insertDoubleCut(Graph* graph, const ui::Selection& item, bool log_action = true);
@@ -103,4 +103,23 @@ namespace alpha
 	bool areGraphsEquivalent(const Item* a, const Item* b);
 
 	std::set<const Item*> getDeiterationTargets(Graph* graph);
+
+	// guard functions, because the UI needs to be able to grey out
+	// the button if we can't perform the action.
+	bool canInsertDoubleCut(Graph* graph);
+	bool canRemoveDoubleCut(Graph* graph);
+
+	bool canInsert(Graph* graph, const char* name);
+	bool canErase(Graph* graph);
+
+	bool canSelect(Graph* graph);
+	bool canIterate(Graph* graph);
+	bool canDeiterate(Graph* graph);
+
+
+	// editing functions
+	// same as insertAtOddDepth, but inserts at any depth.
+	void insert(Graph* graph, Item* parent, Item* item);
+	void insertEmptyBox(Graph* graph, Item* parent, const lx::vec2& pos);
+	void surround(Graph* graph, const ui::Selection& sel);
 }

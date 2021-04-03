@@ -20,6 +20,15 @@ namespace ui
 
 	constexpr size_t MAX_ACTIONS = 69;
 
+	bool canUndo()
+	{
+		return state.actionIndex < state.actions.size();
+	}
+
+	bool canRedo()
+	{
+		return state.actionIndex > 0;
+	}
 
 	void performAction(Action action)
 	{
@@ -44,7 +53,6 @@ namespace ui
 			return;
 		}
 
-		graph->flags |= FLAG_GRAPH_MODIFIED;
 		auto& action = state.actions[state.actionIndex++];
 		switch(action.type)
 		{
@@ -60,14 +68,14 @@ namespace ui
 
 			case Action::PASTE:
 				for(auto item : action.items)
-					ui::eraseItemFromParent(item);
+					ui::eraseItemFromParent(graph, item);
 				break;
 
 			case Action::REPARENT: {
 				assert(action.items.size() == 1);
 
 				// since we are undoing, the existing parent and positions are the new ones
-				ui::eraseItemFromParent(action.items[0]);
+				ui::eraseItemFromParent(graph, action.items[0]);
 				std::swap(action.items[0]->pos, action.oldPos);
 
 				auto tmp = action.items[0]->parent();
@@ -102,7 +110,7 @@ namespace ui
 				break;
 
 			case Action::INFER_ITERATION:
-				alpha::eraseItemFromParent(action.items[0]);
+				alpha::eraseItemFromParent(graph, action.items[0]);
 				break;
 
 			case Action::INFER_DEITERATION:
@@ -115,6 +123,9 @@ namespace ui
 				lg::error("ui", "unknown action type '{}'", action.type);
 				break;
 		}
+
+		ui::selection().refresh();
+		graph->flags |= FLAG_GRAPH_MODIFIED;
 	}
 
 	void performRedo(Graph* graph)
@@ -126,7 +137,6 @@ namespace ui
 			return;
 		}
 
-		graph->flags |= FLAG_GRAPH_MODIFIED;
 		auto& action = state.actions[--state.actionIndex];
 		switch(action.type)
 		{
@@ -136,7 +146,7 @@ namespace ui
 
 			case Action::DELETE:
 				for(auto item : action.items)
-					ui::eraseItemFromParent(item);
+					ui::eraseItemFromParent(graph, item);
 				break;
 
 			case Action::PASTE:
@@ -151,7 +161,7 @@ namespace ui
 				assert(action.items.size() == 1);
 
 				// since we are redoing, the existing parent and positions are the old ones
-				ui::eraseItemFromParent(action.items[0]);
+				ui::eraseItemFromParent(graph, action.items[0]);
 				std::swap(action.items[0]->pos, action.oldPos);
 
 				auto tmp = action.items[0]->parent();
@@ -192,12 +202,15 @@ namespace ui
 				break;
 
 			case Action::INFER_DEITERATION:
-				alpha::eraseItemFromParent(action.items[0]);
+				alpha::eraseItemFromParent(graph, action.items[0]);
 				break;
 
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);
 				break;
 		}
+
+		ui::selection().refresh();
+		graph->flags |= FLAG_GRAPH_MODIFIED;
 	}
 }
