@@ -119,6 +119,18 @@ namespace ui
 				ui::relayout(graph, action.items[0]);
 				break;
 
+			case Action::EDIT_SURROUND: {
+				auto parent = action.items[0]->parent();
+				auto gp = parent->parent();
+				for(auto item : action.items)
+				{
+					eraseItemFromParent(graph, item);
+					item->setParent(gp);
+					gp->subs.push_back(item);
+				}
+				eraseItemFromParent(graph, parent);
+			} break;
+
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);
 				break;
@@ -204,6 +216,13 @@ namespace ui
 			case Action::INFER_DEITERATION:
 				alpha::eraseItemFromParent(graph, action.items[0]);
 				break;
+
+			case Action::EDIT_SURROUND: {
+				auto sel = Selection();
+				sel.set(action.items);
+				alpha::surround(graph, sel);
+				sel.clear();
+			} break;
 
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);
