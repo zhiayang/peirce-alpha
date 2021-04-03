@@ -201,12 +201,13 @@ namespace alpha
 		if(sel.empty() || !sel.allSiblings())
 			return;
 
-		for(auto item : sel)
+		auto items = sel.get();
+		for(auto item : items)
 			eraseItemFromParent(graph, item);
 
-		auto oldp = sel[0]->parent();
+		auto oldp = items[0]->parent();
 
-		auto p = Item::box(sel.get());  // box() sets the parent of the stuff automatically
+		auto p = Item::box(items);      // box() sets the parent of the stuff automatically
 		auto gp = Item::box({ p });     // (which is also why we need to cache the old parent)
 		p->setParent(gp);
 
@@ -222,7 +223,7 @@ namespace alpha
 		{
 			ui::performAction(ui::Action {
 				.type   = ui::Action::INFER_ADD_DOUBLE_CUT,
-				.items  = sel.get()
+				.items  = items
 			});
 		}
 	}

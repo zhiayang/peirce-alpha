@@ -53,15 +53,17 @@ namespace ui
 
 		imgui::SetNextWindowContentSize(graph->box.size);
 
+		auto s = Styler();
+		s.push(ImGuiCol_WindowBg, ui::theme().background);
+
+
 		imgui::Begin("__graph", nullptr,
 			ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_HorizontalScrollbar);
 
 		// relayout *after* doing interaction.
-		{
-			if(imgui::IsMousePosValid())
-				ui::interact(calc_origin(), graph);
-		}
+		if(imgui::IsMousePosValid())
+			ui::interact(calc_origin(), graph);
 
 		render(imgui::GetWindowDrawList(), graph);
 

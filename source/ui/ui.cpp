@@ -119,8 +119,7 @@ namespace ui
 		uiState.smallFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", 12, &config, 0);
 		io.Fonts->Build();
 
-		uiState.theme = std::move(theme);
-
+		setTheme(std::move(theme));
 
 		auto& style = ImGui::GetStyle();
 		{
@@ -128,21 +127,26 @@ namespace ui
 			style.ScrollbarSize = 12;
 			style.ScrollbarRounding = 2;
 
+			// button backgrounds don't exist
+			style.Colors[ImGuiCol_Button] = util::colour::fromHexRGBA(0);
+
+			style.WindowBorderSize = 0;
+		}
+	}
+
+	void setTheme(Theme theme)
+	{
+		auto& style = ImGui::GetStyle();
+		{
 			style.Colors[ImGuiCol_Text] = theme.foreground;
 			style.Colors[ImGuiCol_WindowBg] = theme.background;
 			style.Colors[ImGuiCol_PopupBg] = theme.tooltipBg;
 
 			style.Colors[ImGuiCol_ButtonActive] = theme.buttonClickedBg;
 			style.Colors[ImGuiCol_ButtonHovered] = theme.buttonHoverBg;
-
-			// button backgrounds don't exist
-			style.Colors[ImGuiCol_Button] = util::colour::fromHexRGBA(0);
-
-			style.WindowBorderSize = 0;
-			// style.AntiAliasedFill = false;
-			// style.AntiAliasedLines = false;
-			// style.AntiAliasedLinesUseTex = false;
 		}
+
+		uiState.theme = std::move(theme);
 	}
 
 	const Theme& theme()

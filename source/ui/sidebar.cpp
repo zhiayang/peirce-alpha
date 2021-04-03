@@ -63,7 +63,8 @@ namespace ui
 		s.push(ImGuiStyleVar_FrameRounding, 2);
 
 		imgui::Begin("__sidebar", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar
-			| ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+			| ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse
+			| ImGuiWindowFlags_NoScrollbar);
 
 		// since window borders are off, we draw the separator manually.
 		{
@@ -80,6 +81,20 @@ namespace ui
 
 		if(toolEnabled(TOOL_EDIT))  editing_tools(graph);
 		else                        inference_tools(graph);
+
+
+		{
+			auto s = Styler();
+			s.push(ImGuiStyleVar_FramePadding, lx::vec2(0, 4));
+			imgui::SetCursorPos(lx::vec2(geom.sidebar.size.x - 40, geom.sidebar.size.y - 36));
+			if(imgui::Button("\uf0eb"))
+			{
+				if(ui::theme().dark)
+					ui::setTheme(ui::light());
+				else
+					ui::setTheme(ui::dark());
+			}
+		}
 
 		imgui::End();
 
@@ -113,7 +128,7 @@ namespace ui
 				auto s = disabled_style(!ui::canUndo());
 				auto ss = flash_style(SB_BUTTON_UNDO);
 
-				imgui::SetCursorPos(cursor + lx::vec2(135, -4));
+				imgui::SetCursorPos(cursor + lx::vec2(144, -4));
 				if(imgui::Button("\uf2ea"))
 					ui::performUndo(graph);
 			}
@@ -123,7 +138,7 @@ namespace ui
 				auto s = disabled_style(!ui::canRedo());
 				auto ss = flash_style(SB_BUTTON_REDO);
 
-				imgui::SetCursorPos(cursor + lx::vec2(165, -4));
+				imgui::SetCursorPos(cursor + lx::vec2(174, -4));
 				if(imgui::Button("\uf2f9"))
 					ui::performRedo(graph);
 			}

@@ -28,6 +28,7 @@ namespace ui
 
 		using colour = util::colour;
 		return Theme {
+			.dark               = false,
 			.foreground         = colour::fromHexRGB(0x3d3d48),
 			.background         = colour::fromHexRGB(0xf8f8f4),
 
@@ -63,6 +64,7 @@ namespace ui
 
 		using colour = util::colour;
 		return Theme {
+			.dark               = true,
 			.foreground         = colour::fromHexRGB(0xc7ccd1),
 			.background         = colour::fromHexRGB(0x171717),
 

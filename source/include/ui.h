@@ -22,6 +22,7 @@ namespace ui
 	void setup(double uiscale, double fontsize, Theme theme);
 	void stop();
 	void quit();
+	void setTheme(Theme theme);
 
 	constexpr uint32_t TOOL_EDIT     = 0x1;
 	constexpr uint32_t TOOL_MOVE     = 0x2;
@@ -149,6 +150,8 @@ namespace ui
 
 	struct Theme
 	{
+		bool dark;
+
 		util::colour foreground;
 		util::colour background;
 
