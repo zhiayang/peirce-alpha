@@ -33,12 +33,13 @@ namespace ui
 
 	static void reflow_cursor(LayoutState& st)
 	{
-		// if(st.cursor.x > st.maxWidth)
-		// {
-		// 	st.cursor.x = st.boxNesting * BOX_H_PADDING;
-		// 	st.cursor.y += st.stackHeights.back() + INTER_ITEM_SPACING;
-		// 	st.stackHeights.back() = 0;
-		// }
+
+	}
+
+	void autoLayoutGraph(Graph* graph)
+	{
+		graph->flags |= FLAG_FORCE_AUTO_LAYOUT;
+		ui::logMessage("graph automatically laid out", 1);
 	}
 
 	static void calculate_size_for_var(Item* item)
@@ -69,11 +70,17 @@ namespace ui
 			st.stackHeights.push_back(0);
 			for(size_t i = 0; i < item->subs.size(); i++)
 			{
+				if(cursor.x >= st.maxWidth - 3 * INTER_ITEM_SPACING)
+				{
+					cursor.x = BOX_H_PADDING;
+					cursor.y += st.stackHeights.back() + INTER_ITEM_SPACING;
+					st.stackHeights.back() += (st.stackHeights.back() + INTER_ITEM_SPACING);
+				}
+
 				auto_layout(st, cursor, item->subs[i]);
 				item->subs[i]->setParent(item);
 
 				cursor.x += item->subs[i]->size.x;
-
 				stackWidth = std::max(stackWidth, cursor.x - startX);
 
 				if(i + 1 < item->subs.size())

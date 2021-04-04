@@ -17,25 +17,15 @@ namespace ui
 	static void inference_tools(Graph* graph);
 	static void interaction_tools(Graph* graph);
 	static Styler disabled_style(bool disabled);
-	static Styler toggle_enabled_style(bool enabled);
 
-
-	static constexpr int FLASH_FRAMES = 6;
+	Styler toggle_enabled_style(bool enabled);
 
 	static char propNameBuf[16];
 	static size_t PROP_NAME_LEN = 16;
 
-	static std::unordered_map<int, int> buttonFlashCounters;
-
-	void flashSidebarButton(int button)
-	{
-		buttonFlashCounters[button] = FLASH_FRAMES;
-		ui::continueDrawing();
-	}
-
 	static Styler flash_style(int button)
 	{
-		return toggle_enabled_style(buttonFlashCounters[button] > 0);
+		return toggle_enabled_style(ui::buttonFlashed(button));
 	}
 
 	// declared in interact.cpp
@@ -104,10 +94,6 @@ namespace ui
 			the button, your mouse must be outside of the graph area. so we can always
 			enforce the "needs something selected" constraint here.
 		*/
-
-		// update all the flash counters
-		for(auto& [ _, ctr ] : buttonFlashCounters)
-			if(ctr > 0) ctr -= 1;
 	}
 
 
@@ -165,7 +151,7 @@ namespace ui
 					ui::toggleTool(TOOL_MOVE);
 
 				// obviously only show the detached thingy when in edit mode
-				if(imgui::GetIO().KeyAlt && ui::toolEnabled(TOOL_EDIT))
+				if(imgui::GetIO().KeyAlt && ui::toolEnabled(TOOL_EDIT) && is_mouse_in_bounds())
 				{
 					auto ss = Styler(); ss.push(ImGuiCol_Text, theme.boxSelection);
 					imgui::SameLine(138);
@@ -410,7 +396,7 @@ namespace ui
 		return s;
 	}
 
-	static Styler toggle_enabled_style(bool enabled)
+	Styler toggle_enabled_style(bool enabled)
 	{
 		auto& theme = ui::theme();
 

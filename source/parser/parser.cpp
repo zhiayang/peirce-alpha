@@ -307,7 +307,7 @@ namespace parser
 		if(!expr) return expr;
 
 		if(st.pop() != TT::RParen)
-			return Err(Error { .msg = zpr::sprint("expected ')' to match this '('"), .loc = open });
+			return Err(Error { .msg = zpr::sprint("expected ')'"), .loc = open });
 
 		return expr;
 	}
@@ -339,7 +339,7 @@ namespace parser
 				if(np == prec && next_op != oper)
 				{
 					return Err(Error {
-						.msg = zpr::sprint("cannot mix operators '{}' and '{}' without disambiguating parentheses",
+						.msg = zpr::sprint("cannot mix '{}' and '{}' without parentheses",
 							oper.text, next_op.text),
 						.loc = next_op.loc
 					});

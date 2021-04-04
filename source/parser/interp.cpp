@@ -49,39 +49,4 @@ namespace ast
 	Or::~Or()   { delete this->left; delete this->right; }
 	Implies::~Implies() { delete this->left; delete this->right; }
 	BidirImplies::~BidirImplies() { delete this->left; delete this->right; }
-
-	std::string Var::str() const
-	{
-		return this->name;
-	}
-
-	std::string Lit::str() const
-	{
-		return this->value ? "1" : "0";
-	}
-
-	std::string Not::str() const
-	{
-		return zpr::sprint("~{}", this->e->str());
-	}
-
-	std::string And::str() const
-	{
-		return zpr::sprint("({} & {})", this->left->str(), this->right->str());
-	}
-
-	std::string Or::str() const
-	{
-		return zpr::sprint("({} | {})", this->left->str(), this->right->str());
-	}
-
-	std::string Implies::str() const
-	{
-		return zpr::sprint("({} -> {})", this->left->str(), this->right->str());
-	}
-
-	std::string BidirImplies::str() const
-	{
-		return zpr::sprint("({} <-> {})", this->left->str(), this->right->str());
-	}
 }

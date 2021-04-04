@@ -12,6 +12,8 @@ namespace ast
 	struct Expr;
 }
 
+struct ImFont;
+
 namespace alpha { struct Graph; struct Item; }
 
 namespace ui
@@ -33,7 +35,7 @@ namespace ui
 	void enableTool(uint32_t tool);
 	bool toggleTool(uint32_t tool);
 
-	bool isTextFieldFocused();
+	ImFont* getBigIconFont();
 
 	// returns < 0 if we should quit, or else it returns the number of events processed.
 	int poll();
@@ -55,8 +57,10 @@ namespace ui
 	int getNextId();
 	void interact(lx::vec2 origin, alpha::Graph* graph);
 
-	void autoLayout(alpha::Graph* graph, double width);
 	void relayout(alpha::Graph* graph, alpha::Item* item);
+
+
+	void autoLayoutGraph(alpha::Graph* graph);
 
 	struct Selection
 	{
@@ -172,11 +176,6 @@ namespace ui
 
 		util::colour tooltipBg;
 		util::colour tooltipText;
-
-		struct {
-			void* submit;
-			void* edit;
-		} textures;
 	};
 
 	struct Styler
@@ -227,7 +226,11 @@ namespace ui
 	constexpr int SB_BUTTON_E_ADD_BOX   = 203;
 	constexpr int SB_BUTTON_E_SURROUND  = 204;
 
-	void flashSidebarButton(int button);
+	constexpr int EB_BUTTON_SUBMIT      = 301;
+	constexpr int EB_BUTTON_RELAYOUT    = 302;
+
+	void flashButton(int button);
+	bool buttonFlashed(int button);
 
 
 

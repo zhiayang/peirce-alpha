@@ -7406,7 +7406,7 @@ void ImGui::SameLine(float offset_from_start_x, float spacing_w)
     }
     else
     {
-        if (spacing_w < 0.0f) spacing_w = g.Style.ItemSpacing.x;
+        if (spacing_w == -69.0f) spacing_w = g.Style.ItemSpacing.x;
         window->DC.CursorPos.x = window->DC.CursorPosPrevLine.x + spacing_w;
         window->DC.CursorPos.y = window->DC.CursorPosPrevLine.y;
     }

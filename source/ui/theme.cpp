@@ -10,22 +10,8 @@ namespace imgui = ImGui;
 
 namespace ui
 {
-	static struct {
-		struct {
-			uint32_t imgSubmit = 0;
-			uint32_t imgEdit = 0;
-		} light, dark;
-
-		bool loaded = false;
-	} resources;
-
-	static void load_resources();
-
 	Theme light()
 	{
-		if(!resources.loaded)
-			load_resources();
-
 		using colour = util::colour;
 		return Theme {
 			.dark               = false,
@@ -49,19 +35,11 @@ namespace ui
 
 			.tooltipBg          = colour::fromHexRGB(0xe0e0e0),
 			.tooltipText        = colour::fromHexRGB(0x3d3d48),
-
-			.textures = {
-				.submit = (void*) (uintptr_t) resources.light.imgSubmit,
-				.edit = (void*) (uintptr_t) resources.light.imgEdit,
-			}
 		};
 	}
 
 	Theme dark()
 	{
-		if(!resources.loaded)
-			load_resources();
-
 		using colour = util::colour;
 		return Theme {
 			.dark               = true,
@@ -85,25 +63,8 @@ namespace ui
 
 			.tooltipBg          = colour::fromHexRGB(0x202020),
 			.tooltipText        = colour::fromHexRGB(0xc7ccd1),
-
-			.textures = {
-				.submit = (void*) (uintptr_t) resources.dark.imgSubmit,
-				.edit = (void*) (uintptr_t) resources.dark.imgEdit,
-			}
 		};
 	}
-
-	static void load_resources()
-	{
-		resources.light.imgSubmit = util::loadImageFromFile("assets/icons/light/forward.png");
-		resources.light.imgEdit = util::loadImageFromFile("assets/icons/light/edit.png");
-
-		resources.dark.imgSubmit = util::loadImageFromFile("assets/icons/dark/forward.png");
-		resources.dark.imgEdit = util::loadImageFromFile("assets/icons/dark/edit.png");
-
-		resources.loaded = true;
-	}
-
 
 
 	Styler::~Styler() { this->pop(); }

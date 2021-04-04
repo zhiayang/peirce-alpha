@@ -29,6 +29,7 @@ namespace ui
 
 		ImFont* mainFont;
 		ImFont* smallFont;
+		ImFont* bigIconFont;
 
 		SDL_Cursor* resizeCursorNESW = 0;
 		SDL_Cursor* resizeCursorNWSE = 0;
@@ -64,8 +65,8 @@ namespace ui
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
 		// glorious 16:10
-		constexpr int MIN_WIDTH = 880;
-		constexpr int MIN_HEIGHT = 550;
+		constexpr int MIN_WIDTH = 840;
+		constexpr int MIN_HEIGHT = 525;
 
 		// setup the window
 		uiState.sdlWindow = SDL_CreateWindow(title.str().c_str(),
@@ -108,15 +109,26 @@ namespace ui
 
 		uiState.mainFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", fontsize, &config, 0);
 
-		const ImWchar icons_ranges[] = { 0xf000, 0xf8ff, 0 };
+		const ImWchar symbols_ranges[] = { 0x2200, 0x22ff, 0 }; // mathematical symbols
+		const ImWchar icons_ranges[]   = { 0xf000, 0xf8ff, 0 }; // private use area
+
+		config.MergeMode = true;
+
+		io.Fonts->AddFontFromFileTTF("assets/dejavu-mono.ttf", fontsize - 2, &config, symbols_ranges);
 
 		auto iconConf = config;
 		iconConf.MergeMode = true;
 		iconConf.GlyphMinAdvanceX = 1.5 * fontsize;
 		iconConf.GlyphMaxAdvanceX = 1.5 * fontsize;
+
 		io.Fonts->AddFontFromFileTTF("assets/font-awesome-pro-regular.otf", fontsize - 2, &iconConf, icons_ranges);
 
 		uiState.smallFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", 12, &config, 0);
+		iconConf.MergeMode = false;
+
+		uiState.bigIconFont = io.Fonts->AddFontFromFileTTF("assets/font-awesome-pro-regular.otf",
+			fontsize * 1.2, &iconConf, icons_ranges);
+
 		io.Fonts->Build();
 
 		setTheme(std::move(theme));
@@ -132,6 +144,11 @@ namespace ui
 
 			style.WindowBorderSize = 0;
 		}
+	}
+
+	ImFont* getBigIconFont()
+	{
+		return uiState.bigIconFont;
 	}
 
 	void setTheme(Theme theme)
@@ -208,8 +225,7 @@ namespace ui
 	{
 		auto& io = ImGui::GetIO();
 
-		// FPS is not very useful, since we only refresh the screen when events come in.
-	#if 0
+	#if 1
 		ImGui::GetForegroundDrawList()->AddText(
 			uiState.smallFont, 12,
 			lx::vec2(geometry::get().display.size.x - 115, 5),

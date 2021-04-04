@@ -116,29 +116,43 @@ namespace alpha
 	Expr* Item::expr() const
 	{
 		// the root box is not really a box, so we need to special-case it.
+		Expr* ret = nullptr;
 
 		if(!this->isBox)
-			return new Var(this->name);
-
-		if(this->subs.empty())
-			return new Lit((this->flags & FLAG_ROOT) ? true : false);
-
-		Expr* inside = nullptr;
-
-		if(this->subs.size() == 1)
 		{
-			inside = this->subs[0]->expr();
+			ret = new Var(this->name);
+		}
+		else if(this->subs.empty())
+		{
+			ret = new Lit((this->flags & FLAG_ROOT) ? true : false);
 		}
 		else
 		{
-			auto a = new And(this->subs[0]->expr(), this->subs[1]->expr());
-			for(size_t i = 2; i < this->subs.size(); i++)
-				a = new And(a, this->subs[i]->expr());
+			Expr* inside = nullptr;
 
-			inside = a;
+			if(this->subs.size() == 1)
+			{
+				inside = this->subs[0]->expr();
+			}
+			else
+			{
+				auto a = new And(this->subs[0]->expr(), this->subs[1]->expr());
+				for(size_t i = 2; i < this->subs.size(); i++)
+					a = new And(a, this->subs[i]->expr());
+
+				inside = a;
+			}
+
+			if(this->flags & FLAG_ROOT)
+				ret = inside;
+
+			else
+				ret = new Not(inside);
 		}
 
-		if(this->flags & FLAG_ROOT) return inside;
-		else                        return new Not(inside);
+		assert(ret != nullptr);
+		if(!(this->flags & FLAG_ROOT))
+			ret->original = this;
+		return ret;
 	}
 }

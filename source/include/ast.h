@@ -9,6 +9,11 @@
 #include "defs.h"
 #include "result.h"
 
+namespace alpha
+{
+	struct Item;
+}
+
 namespace ast
 {
 	constexpr int EXPR_VAR          = 1;
@@ -24,17 +29,16 @@ namespace ast
 		Expr(int t) : type(t) { }
 		virtual ~Expr();
 
-		virtual std::string str() const = 0;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const = 0;
 
 		const int type;
+		const alpha::Item* original = nullptr;
 	};
 
 	struct Var : Expr
 	{
 		Var(std::string s) : Expr(TYPE), name(std::move(s)) { }
 		virtual ~Var() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_VAR;
@@ -46,7 +50,6 @@ namespace ast
 	{
 		Lit(bool v) : Expr(TYPE), value(v) { }
 		virtual ~Lit() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_LIT;
@@ -58,7 +61,6 @@ namespace ast
 	{
 		And(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
 		virtual ~And() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_AND;
@@ -71,7 +73,6 @@ namespace ast
 	{
 		Not(Expr* e) : Expr(TYPE), e(e) { }
 		virtual ~Not() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_NOT;
@@ -83,7 +84,6 @@ namespace ast
 	{
 		Or(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
 		virtual ~Or() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_OR;
@@ -97,7 +97,6 @@ namespace ast
 		Implies(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
 
 		virtual ~Implies() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_IMPLIES;
@@ -111,7 +110,6 @@ namespace ast
 		BidirImplies(Expr* l, Expr* r) : Expr(TYPE), left(l), right(r) { }
 
 		virtual ~BidirImplies() override;
-		virtual std::string str() const override;
 		virtual Expr* evaluate(const std::unordered_map<std::string, bool>& syms) const override;
 
 		static constexpr int TYPE = EXPR_BIDIRIMPLIES;

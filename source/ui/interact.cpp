@@ -314,12 +314,12 @@ namespace ui
 		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && !has_shift()))
 		{
 			performUndo(graph);
-			ui::flashSidebarButton(SB_BUTTON_UNDO);
+			ui::flashButton(SB_BUTTON_UNDO);
 		}
 		else if(is_char_pressed('z') && ((has_cmd() || has_ctrl()) && has_shift()))
 		{
 			performRedo(graph);
-			ui::flashSidebarButton(SB_BUTTON_REDO);
+			ui::flashButton(SB_BUTTON_REDO);
 		}
 		else if(is_char_pressed('q') && (has_ctrl()))
 		{
@@ -328,27 +328,27 @@ namespace ui
 		}
 		else if(ui::toolEnabled(TOOL_EDIT))
 		{
-			if(!state.selection.empty() && (is_char_pressed('x') || is_char_pressed('c')) && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
+			if(canCopyOrCut() && (is_char_pressed('x') || is_char_pressed('c')) && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
 			{
 				if(is_char_pressed('c'))
 				{
 					performCopy(graph);
-					ui::flashSidebarButton(SB_BUTTON_COPY);
+					ui::flashButton(SB_BUTTON_COPY);
 				}
 				else
 				{
 					performCut(graph);
-					ui::flashSidebarButton(SB_BUTTON_CUT);
+					ui::flashButton(SB_BUTTON_CUT);
 				}
 			}
-			else if(is_char_pressed('v') && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
+			else if(is_char_pressed('v') && canPaste() && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
 			{
 				auto [ drop, pos ] = get_single_selected_box_or_mouse_hover_box(mouse, graph);
 				if(drop == nullptr)
 					return;
 
 				performPaste(graph, drop, &pos);
-				ui::flashSidebarButton(SB_BUTTON_PASTE);
+				ui::flashButton(SB_BUTTON_PASTE);
 			}
 			else if(!state.selection.empty() && (is_key_pressed(SDL_SCANCODE_BACKSPACE) || is_key_pressed(SDL_SCANCODE_DELETE)))
 			{
@@ -365,7 +365,7 @@ namespace ui
 				state.selection.clear();
 
 				graph->flags |= FLAG_GRAPH_MODIFIED;
-				ui::flashSidebarButton(SB_BUTTON_E_DELETE);
+				ui::flashButton(SB_BUTTON_E_DELETE);
 			}
 			else if(is_char_pressed('1'))
 			{
@@ -381,7 +381,7 @@ namespace ui
 				thing->pos = pos;
 
 				alpha::insert(graph, drop, thing);
-				ui::flashSidebarButton(SB_BUTTON_E_INSERT);
+				ui::flashButton(SB_BUTTON_E_INSERT);
 			}
 			else if(is_char_pressed('2'))
 			{
@@ -390,7 +390,7 @@ namespace ui
 					return;
 
 				alpha::insertEmptyBox(graph, drop, pos);
-				ui::flashSidebarButton(SB_BUTTON_E_ADD_BOX);
+				ui::flashButton(SB_BUTTON_E_ADD_BOX);
 			}
 			else if(is_char_pressed('3'))
 			{
@@ -398,7 +398,7 @@ namespace ui
 					return;
 
 				alpha::surround(graph, selection());
-				ui::flashSidebarButton(SB_BUTTON_E_SURROUND);
+				ui::flashButton(SB_BUTTON_E_SURROUND);
 			}
 		}
 		else
@@ -410,37 +410,42 @@ namespace ui
 			if(is_char_pressed('1') && alpha::canInsert(graph, ui::get_prop_name()))
 			{
 				alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(ui::get_prop_name()));
-				ui::flashSidebarButton(SB_BUTTON_INSERT);
+				ui::flashButton(SB_BUTTON_INSERT);
 			}
 			else if(is_char_pressed('2') && alpha::canErase(graph))
 			{
 				alpha::eraseFromEvenDepth(graph, sel[0]);
-				ui::flashSidebarButton(SB_BUTTON_ERASE);
+				ui::flashButton(SB_BUTTON_ERASE);
 			}
 			else if(is_char_pressed('3') && alpha::canInsertDoubleCut(graph))
 			{
 				alpha::insertDoubleCut(graph, sel);
-				ui::flashSidebarButton(SB_BUTTON_DBL_ADD);
+				ui::flashButton(SB_BUTTON_DBL_ADD);
 			}
 			else if(is_char_pressed('4') && alpha::canRemoveDoubleCut(graph))
 			{
 				alpha::removeDoubleCut(graph, sel);
-				ui::flashSidebarButton(SB_BUTTON_DBL_DEL);
+				ui::flashButton(SB_BUTTON_DBL_DEL);
 			}
 			else if(is_char_pressed('5') && alpha::canSelect(graph))
 			{
 				alpha::selectTargetForIteration(graph, sel.count() == 1 ? sel[0] : nullptr);
-				ui::flashSidebarButton(SB_BUTTON_SELECT);
+				ui::flashButton(SB_BUTTON_SELECT);
 			}
 			else if(is_char_pressed('6') && alpha::canIterate(graph))
 			{
 				alpha::iterate(graph, sel[0]);
-				ui::flashSidebarButton(SB_BUTTON_ITER);
+				ui::flashButton(SB_BUTTON_ITER);
 			}
 			else if(is_char_pressed('7') && alpha::canDeiterate(graph))
 			{
 				alpha::deiterate(graph, sel[0]);
-				ui::flashSidebarButton(SB_BUTTON_DEITER);
+				ui::flashButton(SB_BUTTON_DEITER);
+			}
+			else if(is_char_pressed('l'))
+			{
+				ui::autoLayoutGraph(graph);
+				ui::flashButton(EB_BUTTON_RELAYOUT);
 			}
 		}
 	}

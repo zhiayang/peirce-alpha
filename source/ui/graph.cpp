@@ -30,6 +30,8 @@ namespace ui
 		return dur.count();
 	}
 
+	// layout.cpp
+	void autoLayout(Graph* graph, double width);
 
 	int getNextId()
 	{
