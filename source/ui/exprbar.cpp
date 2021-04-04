@@ -24,11 +24,21 @@ namespace ui
 
 	static void expr_bar(Graph* graph);
 	static void edit_bar(Graph* graph);
-	static std::string expr_to_string(ast::Expr* expr);
+	std::string expr_to_string(ast::Expr* expr);
 
 	// sidebar.cpp
 	Styler toggle_enabled_style(bool enabled);
 
+	ast::Expr* get_cached_expr(Graph* graph)
+	{
+		if(state.cachedExpr == nullptr)
+		{
+			state.cachedExpr = graph->expr();
+			strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
+		}
+
+		return state.cachedExpr;
+	}
 
 	void draw_exprbar(Graph* graph)
 	{
@@ -58,13 +68,14 @@ namespace ui
 			strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
 		}
 
-		if(ui::toolEnabled(TOOL_EDIT))  edit_bar(graph);
-		else                            expr_bar(graph);
+		bool editing = ui::toolEnabled(TOOL_EDIT) && !ui::toolEnabled(TOOL_EVALUATE);
+		if(editing) edit_bar(graph);
+		else        expr_bar(graph);
 
 		imgui::GetForegroundDrawList()->AddLine(
 			lx::vec2(geom.exprbar.pos.x, geom.exprbar.pos.y),
 			lx::vec2((geom.exprbar.pos + geom.exprbar.size).x, geom.exprbar.pos.y),
-			ui::toolEnabled(TOOL_EDIT) ? theme.boxDetached.u32() : theme.foreground.u32(),
+			editing ? theme.boxDetached.u32() : theme.foreground.u32(),
 			/* thickness: */ 2.0
 		);
 
@@ -181,7 +192,7 @@ namespace ui
 		imgui::SameLine(0, 0);
 	}
 
-	static std::string expr_to_string(ast::Expr* expr)
+	std::string expr_to_string(ast::Expr* expr)
 	{
 		std::string s;
 		render_expr(expr, &s);

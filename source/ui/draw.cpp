@@ -34,49 +34,49 @@ namespace ui
 	{
 		using namespace alpha;
 
-		return Graph({
-			Item::box({
-				Item::var("A"),
-				Item::var("B"),
-				Item::var("C"),
-				Item::var("D"),
-				Item::var("E"),
-				Item::var("F"),
-				Item::var("G"),
-				Item::var("H"),
-				Item::var("I"),
-				Item::var("J"),
-				Item::var("K"),
-				Item::var("L"),
-				Item::var("M"),
-				Item::var("N"),
-				Item::var("O"),
-				Item::var("P"),
-				Item::var("Q"),
-				Item::var("R"),
-			})
-		});
-		// return Graph({ Item::box({
+		// return Graph({
+		// 	Item::box({
 		// 		Item::var("A"),
-		// 		Item::box({
-		// 			// Item::var("B"),
-		// 			// Item::var("B"),
-		// 			// Item::var("B"),
-		// 			Item::var("B"),
-		// 			Item::box({
-		// 				Item::var("C"),
-		// 				Item::var("B"),
-		// 				Item::box({
-		// 					Item::box({
-		// 						Item::var("X"),
-		// 						Item::var("B"),
-		// 						Item::var("Z"),
-		// 					})
-		// 				})
-		// 			})
-		// 		})
+		// 		Item::var("B"),
+		// 		Item::var("C"),
+		// 		Item::var("D"),
+		// 		Item::var("E"),
+		// 		Item::var("F"),
+		// 		Item::var("G"),
+		// 		Item::var("H"),
+		// 		Item::var("I"),
+		// 		Item::var("J"),
+		// 		Item::var("K"),
+		// 		Item::var("L"),
+		// 		Item::var("M"),
+		// 		Item::var("N"),
+		// 		Item::var("O"),
+		// 		Item::var("P"),
+		// 		Item::var("Q"),
+		// 		Item::var("R"),
 		// 	})
 		// });
+		return Graph({ Item::box({
+				Item::var("A"),
+				Item::box({
+					// Item::var("B"),
+					// Item::var("B"),
+					// Item::var("B"),
+					Item::var("B"),
+					Item::box({
+						Item::var("C"),
+						Item::var("B"),
+						Item::box({
+							Item::box({
+								Item::var("X"),
+								Item::var("B"),
+								Item::var("Z"),
+							})
+						})
+					})
+				})
+			})
+		});
 	}
 
 	void update()

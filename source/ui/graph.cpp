@@ -22,6 +22,7 @@ namespace ui
 		std::string msg;
 		double begin;
 		double duration;
+		bool evalExpr = false;
 	} messageState;
 
 	static double get_time_now()
@@ -69,16 +70,20 @@ namespace ui
 
 		render(imgui::GetWindowDrawList(), graph);
 
+		imgui::SetCursorPos(lx::vec2(12, geom.graph.size.y - 34));
+
 		// render the message
-		constexpr double FADE_TIME = 0.5;
-		if(auto msg = messageState.msg; !msg.empty() && get_time_now() - messageState.begin > messageState.duration + FADE_TIME)
+		constexpr double FADE_TIME = 0.3;
+		if(auto msg = messageState.msg; !msg.empty() && messageState.evalExpr)
+		{
+			imgui::TextUnformatted(msg.c_str());
+		}
+		else if(!msg.empty() && get_time_now() - messageState.begin > messageState.duration + FADE_TIME)
 		{
 			messageState.msg = "";
 		}
 		else if(!msg.empty())
 		{
-			imgui::SetCursorPos(lx::vec2(12, geom.graph.size.y - 28));
-
 			auto s = Styler();
 			if(auto diff = get_time_now() - messageState.begin; diff > messageState.duration)
 			{
@@ -167,13 +172,28 @@ namespace ui
 		return origin;
 	}
 
+	void showEvalExpr(const std::string& msg)
+	{
+		logMessage(msg, 0);
+		messageState.evalExpr = true;
+	}
+
+	void resetEvalExpr()
+	{
+		messageState.evalExpr = false;
+	}
+
+	bool showingEvalExpr()
+	{
+		return messageState.evalExpr;
+	}
 
 	void logMessage(const std::string& msg, double timeout_secs)
 	{
 		messageState = {
 			.msg = msg,
 			.begin = get_time_now(),
-			.duration = (timeout_secs == 0 ? INFINITY : timeout_secs)
+			.duration = timeout_secs
 		};
 	}
 }

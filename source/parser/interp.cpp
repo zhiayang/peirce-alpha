@@ -8,24 +8,67 @@ namespace ast
 {
 	Expr* Var::evaluate(const std::unordered_map<std::string, bool>& syms) const
 	{
-		return nullptr;
+		if(auto it = syms.find(this->name); it != syms.end())
+			return new Lit(it->second);
+
+		return new Var(this->name);
 	}
 
 	Expr* Lit::evaluate(const std::unordered_map<std::string, bool>& syms) const
 	{
-		return nullptr;
-	}
-
-	Expr* And::evaluate(const std::unordered_map<std::string, bool>& syms) const
-	{
-		return nullptr;
+		return new Lit(this->value);
 	}
 
 	Expr* Not::evaluate(const std::unordered_map<std::string, bool>& syms) const
 	{
-		return nullptr;
+		auto ee = this->e->evaluate(syms);
+		if(auto elit = dynamic_cast<Lit*>(ee); elit != nullptr)
+		{
+			auto v = elit->value;
+			delete ee;
+
+			return new Lit(!v);
+		}
+
+		return ee;
 	}
 
+	Expr* And::evaluate(const std::unordered_map<std::string, bool>& syms) const
+	{
+		auto ll = this->left->evaluate(syms);
+		if(auto llit = dynamic_cast<Lit*>(ll); llit != nullptr)
+		{
+			if(llit->value)
+			{
+				delete ll;
+				return this->right->evaluate(syms);
+			}
+			else
+			{
+				return new Lit(false);
+			}
+		}
+
+		auto rr = this->right->evaluate(syms);
+		if(auto rlit = dynamic_cast<Lit*>(rr); rlit != nullptr)
+		{
+			if(rlit->value)
+			{
+				delete rr;
+				return ll;
+			}
+			else
+			{
+				delete ll;
+				return new Lit(false);
+			}
+		}
+
+		return new And(ll, rr);
+	}
+
+	// these 3 don't need to be evaluated, since we'll use transform()
+	// to reduce everything to ands and nots.
 	Expr* Or::evaluate(const std::unordered_map<std::string, bool>& syms) const
 	{
 		return nullptr;

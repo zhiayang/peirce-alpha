@@ -29,6 +29,7 @@ namespace ui
 	constexpr uint32_t TOOL_EDIT     = 0x1;
 	constexpr uint32_t TOOL_MOVE     = 0x2;
 	constexpr uint32_t TOOL_RESIZE   = 0x4;
+	constexpr uint32_t TOOL_EVALUATE = 0x8;
 
 	bool toolEnabled(uint32_t tool);
 	void disableTool(uint32_t tool);
@@ -58,7 +59,6 @@ namespace ui
 	void interact(lx::vec2 origin, alpha::Graph* graph);
 
 	void relayout(alpha::Graph* graph, alpha::Item* item);
-
 
 	void autoLayoutGraph(alpha::Graph* graph);
 
@@ -109,7 +109,11 @@ namespace ui
 	Selection& selection();
 	alpha::Item* getSelected();
 
-	void logMessage(const std::string& msg, double timeout_secs = 0);
+	void logMessage(const std::string& msg, double timeout_secs);
+
+	void showEvalExpr(const std::string& msg);
+	bool showingEvalExpr();
+	void resetEvalExpr();
 
 	struct Action
 	{
@@ -232,6 +236,8 @@ namespace ui
 	void flashButton(int button);
 	bool buttonFlashed(int button);
 
+	// in sidebar.cpp
+	void toggleVariableState(int num);
 
 
 	namespace geometry

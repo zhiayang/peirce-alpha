@@ -13,6 +13,7 @@ using namespace alpha;
 
 namespace ui
 {
+	static void eval_tools(Graph* graph);
 	static void editing_tools(Graph* graph);
 	static void inference_tools(Graph* graph);
 	static void interaction_tools(Graph* graph);
@@ -22,20 +23,29 @@ namespace ui
 
 	static char propNameBuf[16];
 	static size_t PROP_NAME_LEN = 16;
+	static std::set<std::string> foundVariables;
+	static std::unordered_map<std::string, bool> varAssigns;
 
 	static Styler flash_style(int button)
 	{
 		return toggle_enabled_style(ui::buttonFlashed(button));
 	}
 
-	// declared in interact.cpp
+	static void find_variables(ast::Expr* expr);
+
+	// used in interact.cpp
 	const char* get_prop_name() { return propNameBuf; }
+
+	// defined in interact.cpp
 	bool is_mouse_in_bounds();
+
+	// defined in exprbar.cpp
+	ast::Expr* get_cached_expr(Graph* graph);
+	std::string expr_to_string(ast::Expr* expr);
+
 
 	void draw_sidebar(Graph* graph)
 	{
-		(void) graph;
-
 		auto EXTRA_PADDING = lx::vec2(5);
 
 		auto& theme = ui::theme();
@@ -53,8 +63,8 @@ namespace ui
 		s.push(ImGuiStyleVar_FrameRounding, 2);
 
 		imgui::Begin("__sidebar", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar
-			| ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse
-			| ImGuiWindowFlags_NoScrollbar);
+			| ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+			| ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
 
 		// since window borders are off, we draw the separator manually.
 		{
@@ -65,13 +75,18 @@ namespace ui
 			);
 		}
 
+		if(graph->flags & FLAG_GRAPH_MODIFIED || foundVariables.empty())
+			find_variables(get_cached_expr(graph));
 
 		interaction_tools(graph);
 		imgui::NewLine();
 
-		if(toolEnabled(TOOL_EDIT))  editing_tools(graph);
-		else                        inference_tools(graph);
+		if(toolEnabled(TOOL_EVALUATE))  eval_tools(graph);
+		else if(toolEnabled(TOOL_EDIT)) editing_tools(graph);
+		else                            inference_tools(graph);
 
+		if(!toolEnabled(TOOL_EVALUATE))
+			ui::resetEvalExpr();
 
 		{
 			auto s = Styler();
@@ -101,6 +116,12 @@ namespace ui
 	static void interaction_tools(Graph* graph)
 	{
 		auto& theme = ui::theme();
+
+		bool eval = toolEnabled(TOOL_EVALUATE);
+		bool edit = toolEnabled(TOOL_EDIT);
+		bool move = toolEnabled(TOOL_MOVE);
+		bool resize = toolEnabled(TOOL_RESIZE);
+
 		{
 			lx::vec2 cursor = imgui::GetCursorPos();
 			imgui::Text("interact");
@@ -111,7 +132,7 @@ namespace ui
 
 			// fa-undo-alt
 			{
-				auto s = disabled_style(!ui::canUndo());
+				auto s = disabled_style(!ui::canUndo() || eval);
 				auto ss = flash_style(SB_BUTTON_UNDO);
 
 				imgui::SetCursorPos(cursor + lx::vec2(144, -4));
@@ -121,7 +142,7 @@ namespace ui
 
 			// fa-redo-alt
 			{
-				auto s = disabled_style(!ui::canRedo());
+				auto s = disabled_style(!ui::canRedo() || eval);
 				auto ss = flash_style(SB_BUTTON_REDO);
 
 				imgui::SetCursorPos(cursor + lx::vec2(174, -4));
@@ -133,62 +154,68 @@ namespace ui
 		imgui::Dummy(lx::vec2(4));
 		imgui::Indent();
 		{
-			bool edit = toolEnabled(TOOL_EDIT);
-			bool move = toolEnabled(TOOL_MOVE);
-			bool resize = toolEnabled(TOOL_RESIZE);
-
-			if(auto s = toggle_enabled_style(edit); true)
+			if(auto s = toggle_enabled_style(eval); true)
 			{
-				// fa-edit, fa-exchange-alt
-				if(imgui::Button(edit ? "e \uf044 edit " : "e \uf362 infer "))
-					edit = ui::toggleTool(TOOL_EDIT);
+				// inbox-in
+				if(imgui::Button("f \uf310 evaluate"))
+					eval = ui::toggleTool(TOOL_EVALUATE);
 			}
 
-			if(auto s = toggle_enabled_style(move); true)
+			if(!eval)
 			{
-				// fa-arrows
-				if(imgui::Button("m \uf047 move "))
-					ui::toggleTool(TOOL_MOVE);
-
-				// obviously only show the detached thingy when in edit mode
-				if(imgui::GetIO().KeyAlt && ui::toolEnabled(TOOL_EDIT) && is_mouse_in_bounds())
+				if(auto s = toggle_enabled_style(edit); true)
 				{
-					auto ss = Styler(); ss.push(ImGuiCol_Text, theme.boxSelection);
-					imgui::SameLine(138);
-					imgui::Text("detached");
+					// fa-edit, fa-exchange-alt
+					if(imgui::Button(edit ? "e \uf044 edit " : "e \uf362 infer "))
+						edit = ui::toggleTool(TOOL_EDIT);
 				}
-			}
 
-			if(auto s = toggle_enabled_style(resize); true)
-			{
-				// fa-expand-alt
-				if(imgui::Button("r \uf424 resize "))
-					ui::toggleTool(TOOL_RESIZE);
-			}
-
-			if(edit)
-			{
-				// fa-copy, fa-cut, fa-paste
+				if(auto s = toggle_enabled_style(move); true)
 				{
-					auto s = disabled_style(!ui::canCopyOrCut());
-					{
-						auto ss = flash_style(SB_BUTTON_COPY);
-						if(imgui::Button("c \uf0c5 copy "))
-							ui::performCopy(graph);
-					}
+					// fa-arrows
+					if(imgui::Button("m \uf047 move "))
+						ui::toggleTool(TOOL_MOVE);
 
+					// obviously only show the detached thingy when in edit mode
+					if(imgui::GetIO().KeyAlt && ui::toolEnabled(TOOL_EDIT) && is_mouse_in_bounds())
 					{
-						auto ss = flash_style(SB_BUTTON_CUT);
-						if(imgui::Button("x \uf0c4 cut "))
-							ui::performCut(graph);
+						auto ss = Styler(); ss.push(ImGuiCol_Text, theme.boxSelection);
+						imgui::SameLine(138);
+						imgui::Text("detached");
 					}
 				}
 
+				if(auto s = toggle_enabled_style(resize); true)
 				{
-					auto s = disabled_style(!ui::canPaste());
-					auto ss = flash_style(SB_BUTTON_PASTE);
-					if(imgui::Button("v \uf0ea paste "))
-						ui::performPaste(graph, ui::selection()[0]);
+					// fa-expand-alt
+					if(imgui::Button("r \uf424 resize "))
+						ui::toggleTool(TOOL_RESIZE);
+				}
+
+				if(edit)
+				{
+					// fa-copy, fa-cut, fa-paste
+					{
+						auto s = disabled_style(!ui::canCopyOrCut());
+						{
+							auto ss = flash_style(SB_BUTTON_COPY);
+							if(imgui::Button("c \uf0c5 copy "))
+								ui::performCopy(graph);
+						}
+
+						{
+							auto ss = flash_style(SB_BUTTON_CUT);
+							if(imgui::Button("x \uf0c4 cut "))
+								ui::performCut(graph);
+						}
+					}
+
+					{
+						auto s = disabled_style(!ui::canPaste());
+						auto ss = flash_style(SB_BUTTON_PASTE);
+						if(imgui::Button("v \uf0ea paste "))
+							ui::performPaste(graph, ui::selection()[0]);
+					}
 				}
 			}
 		}
@@ -229,6 +256,8 @@ namespace ui
 
 	static void inference_tools(Graph* graph)
 	{
+		imgui::PushID("__scope_infer");
+
 		auto geom = geometry::get();
 		auto& sel = selection();
 
@@ -317,10 +346,14 @@ namespace ui
 			imgui::SetCursorPos(lx::vec2(curs.x, geom.sidebar.size.y - 34));
 			imgui::TextUnformatted(zpr::sprint("depth: {}", sel[0]->depth()).c_str());
 		}
+
+		imgui::PopID();
 	}
 
 	static void editing_tools(Graph* graph)
 	{
+		imgui::PushID("__scope_editing");
+
 		auto& sel = selection();
 
 		imgui::Text("editing"); imgui::Dummy(lx::vec2(4));
@@ -371,6 +404,145 @@ namespace ui
 
 			imgui::SetCursorPos(curs);
 		}
+
+		imgui::PopID();
+	}
+
+
+	static int get_var_state(const std::unordered_map<std::string, bool>& vars, const std::string& name)
+	{
+		if(auto it = vars.find(name); it != vars.end())
+		{
+			if(it->second)  return 1;
+			else            return 2;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
+	static bool vars_updated = false;
+	void toggleVariableState(int num)
+	{
+		int x = 0;
+		auto it = foundVariables.begin();
+		while(x < num)
+		{
+			if(it == foundVariables.end())
+				return;
+
+			++it;
+			++x;
+		}
+
+		auto name = *it;
+		int state = get_var_state(varAssigns, name);
+		state = (state + 1) % 3;
+
+		if(state == 0) varAssigns.erase(name);
+		if(state == 1) varAssigns[name] = true;
+		if(state == 2) varAssigns[name] = false;
+
+		vars_updated = true;
+	}
+
+	static void eval_tools(Graph* graph)
+	{
+		imgui::PushID("__scope_eval");
+
+		auto& theme = ui::theme();
+		auto geom = geometry::get();
+
+		auto copy = varAssigns;
+
+		{
+			lx::vec2 cursor = imgui::GetCursorPos();
+			imgui::Text("variables");
+
+			auto s = Styler();
+			s.push(ImGuiStyleVar_FramePadding, lx::vec2(0, 4));
+			s.push(ImGuiStyleVar_FrameRounding, 2);
+
+			// add a reset button
+			// fa-undo-alt
+			imgui::SetCursorPos(cursor + lx::vec2(174, -4));
+			if(imgui::Button("\uf2ea"))
+			{
+				zpr::println("reset");
+				copy.clear();
+			}
+		}
+
+		imgui::BeginChild("__variables", lx::vec2(0, geom.sidebar.size.y - 160));
+		imgui::Indent(/* 23 */);
+
+		auto button_style = [&copy, &theme](const std::string& name) -> Styler {
+			if(auto it = copy.find(name); it != copy.end())
+			{
+				if(it->second)
+				{
+					return toggle_enabled_style(it->second);
+				}
+				else
+				{
+					auto s = Styler();
+					s.push(ImGuiCol_ButtonActive, theme.buttonClickedBg2);
+					s.push(ImGuiCol_ButtonHovered, theme.buttonClickedBg);
+					s.push(ImGuiCol_Button, theme.buttonClickedBg2);
+					return s;
+				}
+			}
+			else
+			{
+				return Styler();
+			}
+		};
+
+		// this will be sorted since we're using an ordered set,
+		// which is nice.
+		int n = 1;
+		for(const auto& var : foundVariables)
+		{
+			// 0 = none, 1 = true, 2 = false
+			int state = 0;
+			if(auto it = copy.find(var); it != copy.end())
+			{
+				if(it->second)  state = 1;
+				else            state = 2;
+			}
+
+			// question-circle: f059, dot-circle: f192, circle: f111
+			auto shortcut = (n > 9 ? " " : std::to_string(n));
+
+			auto text = zpr::sprint("{} {} {} ", shortcut,
+				state == 0 ? "\uf059" : state == 1 ? "\uf192" : "\uf111", var);
+
+			auto s = button_style(var);
+			if(imgui::Button(text.c_str()))
+			{
+				state = (state + 1) % 3;
+				if(state == 0) copy.erase(var);
+				if(state == 1) copy[var] = true;
+				if(state == 2) copy[var] = false;
+			}
+
+			n += 1;
+		}
+
+		imgui::Unindent(/* 23 */);
+		imgui::EndChild();
+
+		if(vars_updated || varAssigns != copy || !ui::showingEvalExpr())
+		{
+			varAssigns = copy;
+			auto result = get_cached_expr(graph)->evaluate(varAssigns);
+
+			ui::showEvalExpr(zpr::sprint("result: {}", expr_to_string(result)));
+		}
+
+		imgui::PopID();
+		vars_updated = false;
 	}
 
 
@@ -381,8 +553,23 @@ namespace ui
 
 
 
+	static void find_variables(ast::Expr* expr)
+	{
+		if(auto l = dynamic_cast<ast::Lit*>(expr); l != nullptr)
+			;
 
+		else if(auto v = dynamic_cast<ast::Var*>(expr); v != nullptr)
+			foundVariables.insert(v->name);
 
+		else if(auto n = dynamic_cast<ast::Not*>(expr); n != nullptr)
+			find_variables(n->e);
+
+		else if(auto a = dynamic_cast<ast::And*>(expr); a != nullptr)
+			find_variables(a->left), find_variables(a->right);
+
+		else
+			abort();
+	}
 
 
 	static Styler disabled_style(bool disabled)

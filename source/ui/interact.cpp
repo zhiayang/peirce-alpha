@@ -62,8 +62,28 @@ namespace ui
 
 	bool toolEnabled(uint32_t tool) { return state.tools & tool; }
 	void disableTool(uint32_t tool) { state.tools &= ~tool; }
-	void enableTool(uint32_t tool)  { state.tools |= tool; }
-	bool toggleTool(uint32_t tool)  { state.tools ^= tool; return state.tools & tool; }
+	void enableTool(uint32_t tool)
+	{
+		state.tools |= tool;
+
+		if(tool & TOOL_EVALUATE)
+		{
+			disableTool(TOOL_EDIT);
+			disableTool(TOOL_RESIZE);
+		}
+	}
+
+	bool toggleTool(uint32_t tool)
+	{
+		if(state.tools & tool)
+			disableTool(tool);
+
+		else
+			enableTool(tool);
+
+		return state.tools & tool;
+	}
+
 	Selection& selection()    { return state.selection; }
 
 	void setClipboard(std::vector<alpha::Item*> items)
@@ -299,6 +319,10 @@ namespace ui
 		{
 			ui::toggleTool(TOOL_EDIT);
 		}
+		else if(is_char_pressed('f'))
+		{
+			ui::toggleTool(TOOL_EVALUATE);
+		}
 		else if(is_char_pressed('m'))
 		{
 			ui::toggleTool(TOOL_MOVE);
@@ -306,6 +330,11 @@ namespace ui
 		else if(is_char_pressed('r'))
 		{
 			ui::toggleTool(TOOL_RESIZE);
+		}
+		else if(is_char_pressed('l'))
+		{
+			ui::autoLayoutGraph(graph);
+			ui::flashButton(EB_BUTTON_RELAYOUT);
 		}
 		else if(is_key_pressed(SDL_SCANCODE_ESCAPE))
 		{
@@ -401,6 +430,19 @@ namespace ui
 				ui::flashButton(SB_BUTTON_E_SURROUND);
 			}
 		}
+		else if(ui::toolEnabled(TOOL_EVALUATE))
+		{
+			if(is_char_pressed('1')) ui::toggleVariableState(0);
+			if(is_char_pressed('2')) ui::toggleVariableState(1);
+			if(is_char_pressed('3')) ui::toggleVariableState(2);
+			if(is_char_pressed('4')) ui::toggleVariableState(3);
+			if(is_char_pressed('5')) ui::toggleVariableState(4);
+			if(is_char_pressed('6')) ui::toggleVariableState(5);
+			if(is_char_pressed('7')) ui::toggleVariableState(6);
+			if(is_char_pressed('8')) ui::toggleVariableState(7);
+			if(is_char_pressed('9')) ui::toggleVariableState(8);
+			if(is_char_pressed('0')) ui::toggleVariableState(9);
+		}
 		else
 		{
 			// note that the alpha::canFooBar functions check the size of the selection,
@@ -441,11 +483,6 @@ namespace ui
 			{
 				alpha::deiterate(graph, sel[0]);
 				ui::flashButton(SB_BUTTON_DEITER);
-			}
-			else if(is_char_pressed('l'))
-			{
-				ui::autoLayoutGraph(graph);
-				ui::flashButton(EB_BUTTON_RELAYOUT);
 			}
 		}
 	}
