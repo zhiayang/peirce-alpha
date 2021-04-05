@@ -38,6 +38,11 @@ namespace ui
 	// defined in sidebar.cpp
 	const char* get_prop_name();
 
+	// defined in sidebar/evaluate.cpp
+	void prev_solution(Graph* graph);
+	void next_solution(Graph* graph);
+	void solve_expression();
+
 	template <typename Cb>
 	static void for_each_item(Item* item, Cb&& cb)
 	{
@@ -442,6 +447,10 @@ namespace ui
 			if(is_char_pressed('8')) ui::toggleVariableState(7);
 			if(is_char_pressed('9')) ui::toggleVariableState(8);
 			if(is_char_pressed('0')) ui::toggleVariableState(9);
+
+			if(is_char_pressed('s')) ui::flashButton(SB_BUTTON_V_SOLVE), solve_expression();
+			if(is_char_pressed(',')) ui::flashButton(SB_BUTTON_V_PREV_SOLN), prev_solution(graph);
+			if(is_char_pressed('.')) ui::flashButton(SB_BUTTON_V_NEXT_SOLN), next_solution(graph);
 		}
 		else
 		{
@@ -717,6 +726,8 @@ namespace ui
 		if('a' <= key && key <= 'z')    return imgui::IsKeyPressed(SDL_SCANCODE_A + (key - 'a'));
 		if('1' <= key && key <= '9')    return imgui::IsKeyPressed(SDL_SCANCODE_1 + (key - '1'));
 		if(key == '0')                  return imgui::IsKeyPressed(SDL_SCANCODE_0);
+		if(key == ',')                  return imgui::IsKeyPressed(SDL_SCANCODE_COMMA);
+		if(key == '.')                  return imgui::IsKeyPressed(SDL_SCANCODE_PERIOD);
 
 		return false;
 	}

@@ -11,12 +11,20 @@
 namespace imgui = ImGui;
 using namespace alpha;
 
+namespace alpha
+{
+	// util/solver.cpp
+	void abort_solve();
+}
+
 namespace ui
 {
 	static void interaction_tools(Graph* graph);
 
 	Styler disabled_style(bool disabled);
 	Styler toggle_enabled_style(bool enabled);
+
+	static bool was_eval = false;
 
 	static char propNameBuf[16];
 	static size_t PROP_NAME_LEN = 16;
@@ -25,8 +33,6 @@ namespace ui
 	{
 		return toggle_enabled_style(ui::buttonFlashed(button));
 	}
-
-	static void find_variables(ast::Expr* expr);
 
 	// used in interact.cpp
 	const char* get_prop_name() { return propNameBuf; }
@@ -44,7 +50,7 @@ namespace ui
 	// sidebar/evaluate.cpp
 	void eval_tools(Graph* graph);
 	void rescan_variables(Graph* graph);
-
+	void set_flags(Graph* graph, const std::unordered_map<std::string, bool>& soln);
 
 	void draw_sidebar(Graph* graph)
 	{
@@ -80,12 +86,19 @@ namespace ui
 		interaction_tools(graph);
 		imgui::NewLine();
 
-		if(toolEnabled(TOOL_EVALUATE))  eval_tools(graph);
+		if(toolEnabled(TOOL_EVALUATE))  was_eval = true, eval_tools(graph);
 		else if(toolEnabled(TOOL_EDIT)) editing_tools(graph);
 		else                            inference_tools(graph);
 
 		if(!toolEnabled(TOOL_EVALUATE))
+		{
 			ui::resetEvalExpr();
+			if(was_eval)
+				set_flags(graph, { });
+
+			was_eval = false;
+			alpha::abort_solve();
+		}
 
 		{
 			auto s = Styler();

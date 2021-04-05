@@ -3,7 +3,6 @@
 // Licensed under the Apache License Version 2.0.
 
 #include <thread>
-#include <chrono>
 
 #include "ui.h"
 #include "ast.h"
@@ -27,6 +26,7 @@ namespace ui
 	ast::Expr* get_cached_expr(Graph* graph);
 	std::string expr_to_string(ast::Expr* expr);
 
+	Styler flash_style(int button);
 	Styler disabled_style(bool disabled);
 	Styler toggle_enabled_style(bool enabled);
 
@@ -40,6 +40,7 @@ namespace ui
 	static std::set<std::string> foundVariables;
 	static std::unordered_map<std::string, bool> varAssigns;
 
+	static bool solve_requested = false;
 	static volatile bool solver_done = true;
 	static std::pair<size_t, size_t> solver_progress;
 	static struct {
@@ -49,8 +50,7 @@ namespace ui
 		std::vector<std::unordered_map<std::string, bool>> solns;
 	} solver_state;
 
-	static void set_flags(Graph* graph, const std::unordered_map<std::string, bool>& soln);
-	static void clear_flags(Graph* graph);
+	void set_flags(Graph* graph, const std::unordered_map<std::string, bool>& soln);
 
 	static void reset_soln()
 	{
@@ -87,7 +87,6 @@ namespace ui
 	static void solver_tool(Graph* graph)
 	{
 		auto& theme = ui::theme();
-		auto geom = geometry::get();
 
 		imgui::PushID("__scope_solve");
 
@@ -97,31 +96,36 @@ namespace ui
 		// tasks
 		{
 			auto done = __atomic_load_n(&solver_done, __ATOMIC_SEQ_CST);
-			auto s = disabled_style(done == false || foundVariables.size() > 32);
-			if(imgui::Button("s \uf0ae solve ") && done)
 			{
-				__atomic_store_n(&solver_done, false, __ATOMIC_SEQ_CST);
-				if(auto sz = foundVariables.size(); sz >= 16)
-					ui::logMessage(zpr::sprint("solving {} variables; this might take some time...", sz), 3);
+				auto s = disabled_style(done == false || foundVariables.size() > 32);
+				auto ss = flash_style(SB_BUTTON_V_SOLVE);
+				if((imgui::Button("s \uf0ae solve ") || solve_requested) && done)
+				{
+					solve_requested = false;
 
-				solver_state.waiting = true;
-				solver_state.did_solve = true;
-				auto t = std::thread([](ast::Expr* expr) {
-					solver_state.solns = alpha::generate_solutions(expr,
-						foundVariables, solver_progress);
+					__atomic_store_n(&solver_done, false, __ATOMIC_SEQ_CST);
+					if(auto sz = foundVariables.size(); sz >= 16)
+						ui::logMessage(zpr::sprint("solving {} variables; this might take some time...", sz), 3);
 
-					__atomic_store_n(&solver_done, true, __ATOMIC_SEQ_CST);
-					auto n = solver_state.solns.size();
+					solver_state.waiting = true;
+					solver_state.did_solve = true;
+					auto t = std::thread([](ast::Expr* expr) {
+						solver_state.solns = alpha::generate_solutions(expr,
+							foundVariables, solver_progress);
 
-					lg::log("solver", "done: {} solution(s)", solver_state.solns.size());
-					if(solver_state.solns.size() > 0)
-						ui::logMessage(zpr::sprint("{} solution{} found", n, n == 1 ? "" : "s"), 5);
+						__atomic_store_n(&solver_done, true, __ATOMIC_SEQ_CST);
+						auto n = solver_state.solns.size();
 
-					else
-						ui::logMessage("unsatisfiable", 5);
-				}, get_cached_expr(graph));
+						lg::log("solver", "done: {} solution(s)", solver_state.solns.size());
+						if(solver_state.solns.size() > 0)
+							ui::logMessage(zpr::sprint("{} solution{} found", n, n == 1 ? "" : "s"), 5);
 
-				t.detach();
+						else
+							ui::logMessage("unsatisfiable", 5);
+					}, get_cached_expr(graph));
+
+					t.detach();
+				}
 			}
 
 			if(!done && solver_state.did_solve)
@@ -166,6 +170,7 @@ namespace ui
 
 					{
 						auto s = disabled_style(solver_state.index == 0);
+						auto ss = flash_style(SB_BUTTON_V_PREV_SOLN);
 						if(imgui::Button("\uf177 prev "))
 							changed = true, solver_state.index -= 1;
 					}
@@ -174,6 +179,7 @@ namespace ui
 
 					{
 						auto s = disabled_style(solver_state.index + 1 >= solver_state.solns.size());
+						auto ss = flash_style(SB_BUTTON_V_NEXT_SOLN);
 						if(imgui::Button(" next \uf178"))
 							changed = true, solver_state.index += 1;
 					}
@@ -189,6 +195,36 @@ namespace ui
 
 		imgui::Unindent();
 		imgui::PopID();
+	}
+
+	// used by interact.cpp
+	void prev_solution(Graph* graph)
+	{
+		if(!solver_state.did_solve)
+			return;
+
+		if(solver_state.index > 0)
+			solver_state.index -= 1;
+
+		varAssigns = solver_state.solns[solver_state.index];
+		set_flags(graph, varAssigns);
+	}
+
+	void next_solution(Graph* graph)
+	{
+		if(!solver_state.did_solve)
+			return;
+
+		if(solver_state.index + 1 < solver_state.solns.size())
+			solver_state.index += 1;
+
+		varAssigns = solver_state.solns[solver_state.index];
+		set_flags(graph, varAssigns);
+	}
+
+	void solve_expression()
+	{
+		solve_requested = true;
 	}
 
 
@@ -244,7 +280,7 @@ namespace ui
 
 		// this will be sorted since we're using an ordered set,
 		// which is nice.
-		int n = 1;
+		int n = 0;
 		for(const auto& var : foundVariables)
 		{
 			// 0 = none, 1 = true, 2 = false
@@ -256,7 +292,7 @@ namespace ui
 			}
 
 			// question-circle: f059, dot-circle: f192, circle: f111
-			auto shortcut = (n > 9 ? " " : std::to_string(n));
+			auto shortcut = (n > 9 ? " " : std::to_string((1 + n) % 10));
 
 			auto text = zpr::sprint("{} {} {} ", shortcut,
 				state == 0 ? "\uf059" : state == 1 ? "\uf192" : "\uf111", var);
@@ -319,7 +355,7 @@ namespace ui
 		}
 	}
 
-	static void set_flags(Graph* graph, const std::unordered_map<std::string, bool>& soln)
+	void set_flags(Graph* graph, const std::unordered_map<std::string, bool>& soln)
 	{
 		for_each_var(&graph->box, [&soln](auto item) {
 			item->flags &= ~(FLAG_VAR_ASSIGN_TRUE | FLAG_VAR_ASSIGN_FALSE);
@@ -330,15 +366,6 @@ namespace ui
 			}
 		});
 	}
-
-	static void clear_flags(Graph* graph)
-	{
-		for_each_var(&graph->box, [](auto item) {
-			item->flags &= ~(FLAG_VAR_ASSIGN_TRUE | FLAG_VAR_ASSIGN_FALSE);
-		});
-	}
-
-
 
 	void toggleVariableState(int num)
 	{

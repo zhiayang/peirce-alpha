@@ -235,6 +235,10 @@ namespace ui
 	constexpr int EB_BUTTON_SUBMIT      = 301;
 	constexpr int EB_BUTTON_RELAYOUT    = 302;
 
+	constexpr int SB_BUTTON_V_PREV_SOLN = 401;
+	constexpr int SB_BUTTON_V_NEXT_SOLN = 402;
+	constexpr int SB_BUTTON_V_SOLVE     = 403;
+
 	void flashButton(int button);
 	bool buttonFlashed(int button);
 
