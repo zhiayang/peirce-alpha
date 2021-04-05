@@ -33,8 +33,10 @@ namespace ui
 			.boxDetached        = colour::fromHexRGB(0x718c00),
 			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
 
-			.tooltipBg          = colour::fromHexRGB(0xe0e0e0),
-			.tooltipText        = colour::fromHexRGB(0x3d3d48),
+			.trueVar            = colour::fromHexRGB(0x5abf86),
+			.falseVar           = colour::fromHexRGB(0xee7268),
+
+			.textFieldBg        = colour::fromHexRGB(0xe0e0e0),
 		};
 	}
 
@@ -61,8 +63,10 @@ namespace ui
 			.boxDetached        = colour::fromHexRGB(0x718c00),
 			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
 
-			.tooltipBg          = colour::fromHexRGB(0x202020),
-			.tooltipText        = colour::fromHexRGB(0xc7ccd1),
+			.trueVar            = colour::fromHexRGB(0x348557),
+			.falseVar           = colour::fromHexRGB(0xa84840),
+
+			.textFieldBg        = colour::fromHexRGB(0x202020),
 		};
 	}
 

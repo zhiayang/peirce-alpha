@@ -2,7 +2,7 @@
 
 WARNINGS        = -Wno-padded -Wno-cast-align -Wno-unreachable-code -Wno-packed -Wno-missing-noreturn -Wno-float-equal -Wno-unused-macros -Werror=return-type -Wextra -Wno-unused-parameter -Wno-trigraphs
 
-COMMON_CFLAGS   = -Wall -O0 -g
+COMMON_CFLAGS   = -Wall -O0
 
 CC              ?= clang
 CXX             ?= clang++

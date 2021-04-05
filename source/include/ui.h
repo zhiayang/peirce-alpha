@@ -178,8 +178,10 @@ namespace ui
 		util::colour boxDetached;
 		util::colour boxDropTarget;
 
-		util::colour tooltipBg;
-		util::colour tooltipText;
+		util::colour trueVar;
+		util::colour falseVar;
+
+		util::colour textFieldBg;
 	};
 
 	struct Styler

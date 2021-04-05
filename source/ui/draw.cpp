@@ -30,33 +30,50 @@ namespace ui
 	}
 
 
-	static alpha::Graph make()
+	static alpha::Graph* make()
 	{
 		using namespace alpha;
 
-		// return Graph({
-		// 	Item::box({
-		// 		Item::var("A"),
-		// 		Item::var("B"),
-		// 		Item::var("C"),
-		// 		Item::var("D"),
-		// 		Item::var("E"),
-		// 		Item::var("F"),
-		// 		Item::var("G"),
-		// 		Item::var("H"),
-		// 		Item::var("I"),
-		// 		Item::var("J"),
-		// 		Item::var("K"),
-		// 		Item::var("L"),
-		// 		Item::var("M"),
-		// 		Item::var("N"),
-		// 		Item::var("O"),
-		// 		Item::var("P"),
-		// 		Item::var("Q"),
-		// 		Item::var("R"),
-		// 	})
-		// });
-		return Graph({ Item::box({
+	#if 0
+		auto ret = new Graph({
+			Item::box({
+				Item::var("A"),
+				Item::var("B"),
+				Item::var("C"),
+				Item::var("D"),
+				Item::var("E"),
+				Item::var("F"),
+				Item::var("G"),
+				Item::var("H"),
+				Item::var("I"),
+				Item::var("J"),
+				Item::var("K"),
+				Item::var("L"),
+				Item::box({
+					Item::var("M"),
+					Item::var("N"),
+					Item::var("O"),
+					Item::var("P"),
+					Item::var("Q"),
+					Item::var("R"),
+					Item::var("S"),
+					Item::var("T"),
+					Item::var("U"),
+				})
+			})
+		});
+	#else
+	#if 1
+		auto ret = new Graph({
+			// Item::var("P"),
+			// Item::box({ Item::var("Q") }),
+			Item::box({
+				Item::var("P"),
+				Item::box({ Item::var("Q") })
+			})
+		});
+	#else
+		auto ret = new Graph({ Item::box({
 				Item::var("A"),
 				Item::box({
 					// Item::var("B"),
@@ -77,6 +94,11 @@ namespace ui
 				})
 			})
 		});
+	#endif
+	#endif
+
+		ret->flags |= FLAG_GRAPH_MODIFIED;
+		return ret;
 	}
 
 	void update()
@@ -93,9 +115,9 @@ namespace ui
 	{
 		static auto g = make();
 
-		draw_sidebar(&g);
-		draw_exprbar(&g);
-		draw_graph(&g);
+		draw_sidebar(g);
+		draw_exprbar(g);
+		draw_graph(g);
 
 		// update all the flash counters
 		for(auto& [ _, ctr ] : buttonFlashCounters)

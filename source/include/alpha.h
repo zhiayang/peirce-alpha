@@ -8,15 +8,17 @@
 
 namespace alpha
 {
-	constexpr uint32_t FLAG_SELECTED            = 0x1;  // whether the thing is selected
-	constexpr uint32_t FLAG_SHOVED              = 0x2;  // whether the thing was already shoved in the current frame
-	constexpr uint32_t FLAG_ROOT                = 0x4;  // whether the box is the root node
-	constexpr uint32_t FLAG_DETACHED            = 0x8;  // whether the thing is 'detached' -- is not constrained to its box
-	constexpr uint32_t FLAG_DROP_TARGET         = 0x10; // the box is the drop-target of the detached item
-	constexpr uint32_t FLAG_GRAPH_MODIFIED      = 0x20; // the graph was modified graphically
-	constexpr uint32_t FLAG_FORCE_AUTO_LAYOUT   = 0x40; // force an autolayout of the graph on the next update
-	constexpr uint32_t FLAG_MOUSE_HOVER         = 0x80; // the mouse is hovering over it
-	constexpr uint32_t FLAG_ITERATION_TARGET    = 0x100;
+	constexpr uint32_t FLAG_SELECTED            = 0x1;      // whether the thing is selected
+	constexpr uint32_t FLAG_SHOVED              = 0x2;      // whether the thing was already shoved in the current frame
+	constexpr uint32_t FLAG_ROOT                = 0x4;      // whether the box is the root node
+	constexpr uint32_t FLAG_DETACHED            = 0x8;      // whether the thing is 'detached' -- is not constrained to its box
+	constexpr uint32_t FLAG_DROP_TARGET         = 0x10;     // the box is the drop-target of the detached item
+	constexpr uint32_t FLAG_GRAPH_MODIFIED      = 0x20;     // the graph was modified graphically
+	constexpr uint32_t FLAG_FORCE_AUTO_LAYOUT   = 0x40;     // force an autolayout of the graph on the next update
+	constexpr uint32_t FLAG_MOUSE_HOVER         = 0x80;     // the mouse is hovering over it
+	constexpr uint32_t FLAG_ITERATION_TARGET    = 0x100;    // it is an iteration target
+	constexpr uint32_t FLAG_VAR_ASSIGN_TRUE     = 0x200;    // variable is set to true
+	constexpr uint32_t FLAG_VAR_ASSIGN_FALSE    = 0x400;    // variable is set to false
 
 	struct Item
 	{

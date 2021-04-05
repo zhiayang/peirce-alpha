@@ -157,7 +157,6 @@ namespace ui
 		{
 			style.Colors[ImGuiCol_Text] = theme.foreground;
 			style.Colors[ImGuiCol_WindowBg] = theme.background;
-			style.Colors[ImGuiCol_PopupBg] = theme.tooltipBg;
 
 			style.Colors[ImGuiCol_ButtonActive] = theme.buttonClickedBg;
 			style.Colors[ImGuiCol_ButtonHovered] = theme.buttonHoverBg;

@@ -22,8 +22,9 @@ namespace ui
 		std::string msg;
 		double begin;
 		double duration;
-		bool evalExpr = false;
 	} messageState;
+
+	static std::string evalExpr;
 
 	static double get_time_now()
 	{
@@ -72,33 +73,43 @@ namespace ui
 
 		imgui::SetCursorPos(lx::vec2(12, geom.graph.size.y - 34));
 
+		if(!evalExpr.empty())
+		{
+			imgui::TextUnformatted(evalExpr.c_str());
+
+			// print the real message somewhere above.
+			imgui::SetCursorPos(lx::vec2(12, geom.graph.size.y - 60));
+		}
+
+
 		// render the message
-		constexpr double FADE_TIME = 0.3;
-		if(auto msg = messageState.msg; !msg.empty() && messageState.evalExpr)
 		{
-			imgui::TextUnformatted(msg.c_str());
-		}
-		else if(!msg.empty() && get_time_now() - messageState.begin > messageState.duration + FADE_TIME)
-		{
-			messageState.msg = "";
-		}
-		else if(!msg.empty())
-		{
-			auto s = Styler();
-			if(auto diff = get_time_now() - messageState.begin; diff > messageState.duration)
+			constexpr double FADE_TIME = 0.3;
+			auto msg = messageState.msg;
+			if(!msg.empty() && get_time_now() - messageState.begin > messageState.duration + FADE_TIME)
 			{
-				auto alpha = 1.0 - ((diff - messageState.duration) / FADE_TIME);
-				s.push(ImGuiStyleVar_Alpha, alpha);
+				messageState.msg = "";
 			}
+			else if(!msg.empty())
+			{
+				auto s = Styler();
+				if(auto diff = get_time_now() - messageState.begin; diff > messageState.duration)
+				{
+					auto alpha = 1.0 - ((diff - messageState.duration) / FADE_TIME);
+					s.push(ImGuiStyleVar_Alpha, alpha);
+				}
 
-			if(messageState.duration != INFINITY)
-				ui::continueDrawing();
+				if(messageState.duration != INFINITY)
+					ui::continueDrawing();
 
-			imgui::TextUnformatted(msg.c_str());
+				imgui::TextUnformatted(msg.c_str());
+			}
 		}
 
 		imgui::End();
 	}
+
+
 
 	static void render(Graph* graph, ImDrawList* dl, lx::vec2 origin, const Item* item)
 	{
@@ -141,6 +152,17 @@ namespace ui
 		}
 		else
 		{
+			if((item->flags & FLAG_VAR_ASSIGN_TRUE) || (item->flags & FLAG_VAR_ASSIGN_FALSE))
+			{
+				util::colour col = (item->flags & FLAG_VAR_ASSIGN_TRUE)
+					? theme.trueVar
+					: theme.falseVar;
+
+				dl->AddRectFilled(origin + item->pos, origin + item->pos + item->size,
+					col.u32(), 3, 0);
+			}
+
+
 			dl->AddText(origin + item->pos + item->content_offset,
 				outlineColour.u32(), item->name.c_str());
 
@@ -174,18 +196,17 @@ namespace ui
 
 	void showEvalExpr(const std::string& msg)
 	{
-		logMessage(msg, 0);
-		messageState.evalExpr = true;
+		evalExpr = msg;
 	}
 
 	void resetEvalExpr()
 	{
-		messageState.evalExpr = false;
+		evalExpr = "";
 	}
 
 	bool showingEvalExpr()
 	{
-		return messageState.evalExpr;
+		return !evalExpr.empty();
 	}
 
 	void logMessage(const std::string& msg, double timeout_secs)

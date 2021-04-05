@@ -31,6 +31,14 @@ namespace ui
 
 	ast::Expr* get_cached_expr(Graph* graph)
 	{
+		if(graph->flags & FLAG_GRAPH_MODIFIED)
+		{
+			if(state.cachedExpr)
+				delete state.cachedExpr;
+
+			state.cachedExpr = nullptr;
+		}
+
 		if(state.cachedExpr == nullptr)
 		{
 			state.cachedExpr = graph->expr();
