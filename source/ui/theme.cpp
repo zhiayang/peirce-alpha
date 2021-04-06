@@ -22,18 +22,16 @@ namespace ui
 			.exprbarBg          = colour::fromHexRGB(0xebebeb),
 
 			.buttonHoverBg      = colour::fromHexRGB(0xb8b8b8),
-			.buttonClickedBg    = colour::fromHexRGB(0xbe93d9),
-
-			.buttonHoverBg2     = colour::fromHexRGB(0x787878),
-			.buttonClickedBg2   = colour::fromHexRGB(0x8494d1),
+			.buttonClickedBg    = colour::fromHexRGB(0xd1a6ed),
+			.buttonClickedBg2   = colour::fromHexRGB(0x98abf5),
 
 			.boxSelection       = colour::fromHexRGB(0xd64754),
-			.boxHover           = colour::fromHexRGB(0xf2b8bd),
+			.boxHover           = colour::fromHexRGB(0xf2aaaf),
 
 			.boxDetached        = colour::fromHexRGB(0x718c00),
 			.boxDropTarget      = colour::fromHexRGB(0x4271ae),
 
-			.trueVar            = colour::fromHexRGB(0x5abf86),
+			.trueVar            = colour::fromHexRGB(0x69db9b),
 			.falseVar           = colour::fromHexRGB(0xee7268),
 
 			.textFieldBg        = colour::fromHexRGB(0xe0e0e0),
@@ -45,20 +43,18 @@ namespace ui
 		using colour = util::colour;
 		return Theme {
 			.dark               = true,
-			.foreground         = colour::fromHexRGB(0xc7ccd1),
+			.foreground         = colour::fromHexRGB(0xd3d7db),
 			.background         = colour::fromHexRGB(0x171717),
 
 			.sidebarBg          = colour::fromHexRGB(0x252525),
 			.exprbarBg          = colour::fromHexRGB(0x252525),
 
 			.buttonHoverBg      = colour::fromHexRGB(0x787878),
-			.buttonClickedBg    = colour::fromHexRGB(0x8f62ac),
+			.buttonClickedBg    = colour::fromHexRGB(0x774694),
+			.buttonClickedBg2   = colour::fromHexRGB(0x42528f),
 
-			.buttonHoverBg2     = colour::fromHexRGB(0xb8b8b8),
-			.buttonClickedBg2   = colour::fromHexRGB(0x6272ac),
-
-			.boxSelection       = colour::fromHexRGB(0xf0717d),
-			.boxHover           = colour::fromHexRGB(0xf2b8bd),
+			.boxSelection       = colour::fromHexRGB(0xb83b47),
+			.boxHover           = colour::fromHexRGB(0xdb8f95),
 
 			.boxDetached        = colour::fromHexRGB(0x718c00),
 			.boxDropTarget      = colour::fromHexRGB(0x4271ae),

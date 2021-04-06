@@ -27,7 +27,7 @@ int main(int argc, char** argv)
 	(void) argv;
 
 	ui::init(/* title: */ "Peirce Alpha System");
-	ui::setup(/* ui scale: */ 2, /* font size: */ 18.0, ui::light());
+	ui::setup(/* ui scale: */ 2, /* font size: */ 18.0, ui::dark());
 
 	while(!quit)
 	{

@@ -168,8 +168,6 @@ namespace ui
 
 		util::colour buttonHoverBg;
 		util::colour buttonClickedBg;
-
-		util::colour buttonHoverBg2;
 		util::colour buttonClickedBg2;
 
 		util::colour boxSelection;
