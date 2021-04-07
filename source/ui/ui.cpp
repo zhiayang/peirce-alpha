@@ -65,8 +65,8 @@ namespace ui
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
 		// glorious 16:10
-		constexpr int MIN_WIDTH = 880;
-		constexpr int MIN_HEIGHT = 550;
+		constexpr int MIN_WIDTH = 920;
+		constexpr int MIN_HEIGHT = 575;
 
 		// setup the window
 		uiState.sdlWindow = SDL_CreateWindow(title.str().c_str(),

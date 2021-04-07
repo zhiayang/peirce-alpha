@@ -127,6 +127,12 @@ namespace ui
 	{
 		auto mouse = imgui::GetMousePos() - origin;
 
+		if(graph->flags & FLAG_GRAPH_MODIFIED)
+		{
+			// if the graph was changed, re-scan the iteration targets.
+			graph->deiteration_targets = alpha::getDeiterationTargets(graph);
+		}
+
 		// reset this flag.
 		graph->flags &= ~FLAG_GRAPH_MODIFIED;
 

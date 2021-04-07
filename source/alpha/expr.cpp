@@ -37,11 +37,11 @@ namespace alpha
 		}
 		else if(auto b = dynamic_cast<BidirImplies*>(expr))
 		{
-			// A <-> B  ===  (!A & !B) | (A & B)  ===  !(!(!A & !B) & !(A & B))
-			return new Not(new And(
-				new Not(new And(new Not(transform(b->left)), new Not(transform(b->right)))),
-				new Not(new And(transform(b->left), transform(b->right)))
-			));
+			// A <-> B  ===  !(A & !B) & !(B & !A)
+			return new And(
+				new Not(new And(transform(b->left), new Not(transform(b->right)))),
+				new Not(new And(new Not(transform(b->left)), transform(b->right)))
+			);
 		}
 		// we have to make copies of this because we delete the entire old AST after transforming it.
 		else if(auto l = dynamic_cast<Lit*>(expr))

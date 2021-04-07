@@ -41,7 +41,7 @@ namespace ui
 		ui::logMessage("graph automatically laid out", 1);
 	}
 
-	static void calculate_size_for_var(Item* item)
+	void calculate_size_for_var(Item* item)
 	{
 		if(item->isBox)
 			return;
@@ -49,7 +49,6 @@ namespace ui
 		auto _sz = imgui::CalcTextSize(item->name.c_str());
 		auto sz = lx::vec2(_sz.x, _sz.y);
 
-		item->content_offset = lx::vec2(OUTER_ITEM_PADDING);
 		item->size = sz + 2 * item->content_offset;
 	}
 
@@ -208,6 +207,9 @@ namespace ui
 		// don't re-layout detached items (since they need to clip into other things)
 		if(box->flags & FLAG_DETACHED)
 			return;
+
+
+		box->content_offset = lx::vec2(OUTER_ITEM_PADDING);
 
 		// we really only need to do stuff if this is a box.
 		if(box->isBox)

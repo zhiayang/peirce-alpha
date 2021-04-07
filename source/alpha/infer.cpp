@@ -7,6 +7,12 @@
 #include "ui.h"
 #include "alpha.h"
 
+namespace ui
+{
+	// ui/layout.cpp
+	void calculate_size_for_var(alpha::Item* item);
+}
+
 namespace alpha
 {
 	void eraseItemFromParent(Graph* graph, Item* item)
@@ -31,6 +37,7 @@ namespace alpha
 
 		// note: we shouldn't need to remove it from deiteration_targets,
 		// since you have no way to 'access' the item after you delete it.
+		graph->flags |= FLAG_GRAPH_MODIFIED;
 	}
 
 
@@ -214,7 +221,10 @@ namespace alpha
 		oldp->subs.push_back(gp);
 		gp->setParent(oldp);
 
-		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
+		ui::relayout(graph, p);
+		ui::relayout(graph, gp);
+
+		graph->flags |= FLAG_GRAPH_MODIFIED;
 		sel.refresh();
 
 		// note that this flag is required because we'll be smart obviously and just use
@@ -242,6 +252,10 @@ namespace alpha
 		auto gp = p->parent();
 		auto ggp = gp->parent();
 
+		// save the positions of the parent and the grandparent...
+		auto ppos = p->pos + p->content_offset;
+		auto gppos = gp->pos + gp->content_offset;
+
 		// make a copy first. we cannot iterate over parent->subs and
 		// eraseItemFromParent at the same time...
 		auto siblings = p->subs;
@@ -259,7 +273,16 @@ namespace alpha
 		eraseItemFromParent(graph, p);
 		eraseItemFromParent(graph, gp);
 
-		graph->flags |= (FLAG_FORCE_AUTO_LAYOUT | FLAG_GRAPH_MODIFIED);
+		graph->flags |= FLAG_GRAPH_MODIFIED;
+
+		for(auto sibling : siblings)
+		{
+			// ensure that the items don't move after removing the cut surrounding them,
+			// because that would be very annoying.
+			sibling->pos += ppos + gppos;
+			ui::relayout(graph, sibling);
+		}
+
 		sel.refresh();
 
 		if(log_action)

@@ -28,6 +28,7 @@ namespace ui
 
 	// sidebar.cpp
 	Styler toggle_enabled_style(bool enabled);
+	void rescan_variables(Graph* graph);
 
 	ast::Expr* get_cached_expr(Graph* graph)
 	{
@@ -264,5 +265,6 @@ namespace ui
 			delete state.cachedExpr;
 
 		state.cachedExpr = graph->expr();
+		rescan_variables(graph);
 	}
 }
