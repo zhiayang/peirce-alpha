@@ -11,20 +11,14 @@
 namespace imgui = ImGui;
 using namespace alpha;
 
-namespace alpha
-{
-	// util/solver.cpp
-	void abort_solve();
-}
 
 namespace ui
 {
 	static void interaction_tools(Graph* graph);
 
+	Styler tri_state_style(int state);
 	Styler disabled_style(bool disabled);
 	Styler toggle_enabled_style(bool enabled);
-
-	static bool was_eval = false;
 
 	static char propNameBuf[16];
 	static size_t PROP_NAME_LEN = 16;
@@ -35,7 +29,7 @@ namespace ui
 	}
 
 	// used in interact.cpp
-	const char* get_prop_name() { return propNameBuf; }
+	char* get_prop_name() { return propNameBuf; }
 	size_t get_prop_capacity() { return PROP_NAME_LEN; }
 
 	// defined in interact.cpp
@@ -86,19 +80,13 @@ namespace ui
 		interaction_tools(graph);
 		imgui::NewLine();
 
-		if(toolEnabled(TOOL_EVALUATE))  was_eval = true, eval_tools(graph);
-		else if(toolEnabled(TOOL_EDIT)) editing_tools(graph);
-		else                            inference_tools(graph);
+		auto mode = ui::getMode();
 
-		if(!toolEnabled(TOOL_EVALUATE))
-		{
-			ui::resetEvalExpr();
-			if(was_eval)
-				set_flags(graph, { });
+		if(mode == MODE_EVALUATE)   eval_tools(graph);
+		else if(mode == MODE_EDIT)  editing_tools(graph);
+		else if(mode == MODE_INFER) inference_tools(graph);
+		else                        abort();
 
-			was_eval = false;
-			alpha::abort_solve();
-		}
 
 		{
 			auto s = Styler();
@@ -129,22 +117,23 @@ namespace ui
 	{
 		auto& theme = ui::theme();
 
-		bool eval = toolEnabled(TOOL_EVALUATE);
-		bool edit = toolEnabled(TOOL_EDIT);
+		auto mode = ui::getMode();
 		bool move = toolEnabled(TOOL_MOVE);
 		bool resize = toolEnabled(TOOL_RESIZE);
 
 		{
 			lx::vec2 cursor = imgui::GetCursorPos();
 			imgui::Text("interact");
+			lx::vec2 next_cursor = imgui::GetCursorPos();
 
 			auto s = Styler();
 			s.push(ImGuiStyleVar_FramePadding, lx::vec2(0, 4));
 			s.push(ImGuiStyleVar_FrameRounding, 2);
 
 			// fa-undo-alt
+			if(mode != MODE_EVALUATE)
 			{
-				auto s = disabled_style(!ui::canUndo() || eval);
+				auto s = disabled_style(!ui::canUndo());
 				auto ss = flash_style(SB_BUTTON_UNDO);
 
 				imgui::SetCursorPos(cursor + lx::vec2(144, -4));
@@ -153,81 +142,82 @@ namespace ui
 			}
 
 			// fa-redo-alt
+			if(mode != MODE_EVALUATE)
 			{
-				auto s = disabled_style(!ui::canRedo() || eval);
+				auto s = disabled_style(!ui::canRedo());
 				auto ss = flash_style(SB_BUTTON_REDO);
 
 				imgui::SetCursorPos(cursor + lx::vec2(174, -4));
 				if(imgui::Button("\uf2f9"))
 					ui::performRedo(graph);
 			}
+
+			imgui::SetCursorPos(next_cursor);
 		}
 
 		imgui::Dummy(lx::vec2(4));
 		imgui::Indent();
 		{
-			if(auto s = toggle_enabled_style(eval); true)
+
 			{
-				// inbox-in
-				if(imgui::Button("f \uf310 evaluate"))
-					eval = ui::toggleTool(TOOL_EVALUATE);
+				auto s = tri_state_style(mode);
+
+				// fa-edit, fa-exchange-alt, fa-inbox-in
+				const char* txt = "";
+				if(mode == MODE_EVALUATE)   txt = "e \uf310 evaluate ";
+				else if(mode == MODE_INFER) txt = "e \uf362 infer ";
+				else if(mode == MODE_EDIT)  txt = "e \uf044 edit ";
+				else                        abort();
+
+				if(imgui::Button(txt))
+					mode = ui::nextMode(graph);
 			}
 
-			if(!eval)
+			if(auto s = toggle_enabled_style(move); true)
 			{
-				if(auto s = toggle_enabled_style(edit); true)
+				// fa-arrows
+				if(imgui::Button("m \uf047 move "))
+					ui::toggleTool(TOOL_MOVE);
+
+				// obviously only show the detached thingy when in edit mode
+				if(imgui::GetIO().KeyAlt && (mode == MODE_EDIT) && is_mouse_in_bounds())
 				{
-					// fa-edit, fa-exchange-alt
-					if(imgui::Button(edit ? "e \uf044 edit " : "e \uf362 infer "))
-						edit = ui::toggleTool(TOOL_EDIT);
+					auto ss = Styler(); ss.push(ImGuiCol_Text, theme.boxSelection);
+					imgui::SameLine(138);
+					imgui::Text("detached");
 				}
+			}
 
-				if(auto s = toggle_enabled_style(move); true)
+			if(auto s = toggle_enabled_style(resize); true)
+			{
+				// fa-expand-alt
+				if(imgui::Button("r \uf424 resize "))
+					ui::toggleTool(TOOL_RESIZE);
+			}
+
+			if(mode == MODE_EDIT)
+			{
+				// fa-copy, fa-cut, fa-paste
 				{
-					// fa-arrows
-					if(imgui::Button("m \uf047 move "))
-						ui::toggleTool(TOOL_MOVE);
-
-					// obviously only show the detached thingy when in edit mode
-					if(imgui::GetIO().KeyAlt && ui::toolEnabled(TOOL_EDIT) && is_mouse_in_bounds())
+					auto s = disabled_style(!ui::canCopyOrCut());
 					{
-						auto ss = Styler(); ss.push(ImGuiCol_Text, theme.boxSelection);
-						imgui::SameLine(138);
-						imgui::Text("detached");
-					}
-				}
-
-				if(auto s = toggle_enabled_style(resize); true)
-				{
-					// fa-expand-alt
-					if(imgui::Button("r \uf424 resize "))
-						ui::toggleTool(TOOL_RESIZE);
-				}
-
-				if(edit)
-				{
-					// fa-copy, fa-cut, fa-paste
-					{
-						auto s = disabled_style(!ui::canCopyOrCut());
-						{
-							auto ss = flash_style(SB_BUTTON_COPY);
-							if(imgui::Button("c \uf0c5 copy "))
-								ui::performCopy(graph);
-						}
-
-						{
-							auto ss = flash_style(SB_BUTTON_CUT);
-							if(imgui::Button("x \uf0c4 cut "))
-								ui::performCut(graph);
-						}
+						auto ss = flash_style(SB_BUTTON_COPY);
+						if(imgui::Button("c \uf0c5 copy "))
+							ui::performCopy(graph);
 					}
 
 					{
-						auto s = disabled_style(!ui::canPaste());
-						auto ss = flash_style(SB_BUTTON_PASTE);
-						if(imgui::Button("v \uf0ea paste "))
-							ui::performPaste(graph, ui::selection()[0]);
+						auto ss = flash_style(SB_BUTTON_CUT);
+						if(imgui::Button("x \uf0c4 cut "))
+							ui::performCut(graph);
 					}
+				}
+
+				{
+					auto s = disabled_style(!ui::canPaste());
+					auto ss = flash_style(SB_BUTTON_PASTE);
+					if(imgui::Button("v \uf0ea paste "))
+						ui::performPaste(graph, ui::selection()[0]);
 				}
 			}
 		}
@@ -275,6 +265,16 @@ namespace ui
 		return s;
 	}
 
+	Styler disabled_style_but_dont_disable(bool disabled)
+	{
+		auto s = Styler();
+		if(disabled)
+		{
+			s.push(ImGuiStyleVar_Alpha, 0.5);
+		}
+		return s;
+	}
+
 	Styler toggle_enabled_style(bool enabled)
 	{
 		auto& theme = ui::theme();
@@ -287,6 +287,23 @@ namespace ui
 			s.push(ImGuiCol_Button, theme.buttonClickedBg);
 		}
 		return s;
+	}
+
+	Styler tri_state_style(int state)
+	{
+		auto& theme = ui::theme();
+		if(state == 0 || state == 1)
+		{
+			return toggle_enabled_style(state);
+		}
+		else
+		{
+			auto s = Styler();
+			s.push(ImGuiCol_ButtonActive, theme.buttonClickedBg2);
+			s.push(ImGuiCol_ButtonHovered, theme.buttonClickedBg);
+			s.push(ImGuiCol_Button, theme.buttonClickedBg2);
+			return s;
+		}
 	}
 }
 

@@ -160,6 +160,10 @@ namespace ui
 
 			style.Colors[ImGuiCol_ButtonActive] = theme.buttonClickedBg;
 			style.Colors[ImGuiCol_ButtonHovered] = theme.buttonHoverBg;
+
+			style.Colors[ImGuiCol_CheckMark] = theme.buttonClickedBg;
+			style.Colors[ImGuiCol_FrameBgActive] = theme.buttonClickedBg2;
+			style.Colors[ImGuiCol_FrameBgHovered] = theme.buttonClickedBg.a(0.4);
 		}
 
 		uiState.theme = std::move(theme);
@@ -237,7 +241,7 @@ namespace ui
 		glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);
 
 		const auto& bg = uiState.theme.background;
-		glClearColor(bg.r, bg.g, bg.b, bg.a);
+		glClearColor(bg.r(), bg.g(), bg.b(), bg.a());
 
 		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

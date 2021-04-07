@@ -22,7 +22,6 @@ namespace ui
 		double maxWidth = 0;
 
 		int boxNesting = 0;
-		std::vector<double> stackHeights;
 	};
 
 	constexpr double BOX_V_PADDING = 3;
@@ -60,38 +59,59 @@ namespace ui
 
 		if(item->isBox)
 		{
+			// sort the box by putting all vars before all boxes.
+			std::sort(item->subs.begin(), item->subs.end(), [](Item* a, Item* b) -> bool {
+				if(!a->isBox && b->isBox)
+					return true;
+
+				else if(a->isBox && b->isBox)
+					return a->subs.size() < b->subs.size();
+
+				else if(!a->isBox && !b->isBox)
+					return a->name < b->name;
+
+				return false;
+			});
+
 			double stackWidth = 0;
 
 			item->pos = pos;
 			auto cursor = lx::vec2(BOX_H_PADDING, BOX_V_PADDING);
 			auto startX = cursor.x;
 
-			st.boxNesting++;
-			st.stackHeights.push_back(0);
+			double row_height = 0;
+			double total_height = 0;
+
 			for(size_t i = 0; i < item->subs.size(); i++)
 			{
-				if(cursor.x >= st.maxWidth - 3 * INTER_ITEM_SPACING)
-				{
-					cursor.x = BOX_H_PADDING;
-					cursor.y += st.stackHeights.back() + INTER_ITEM_SPACING;
-					st.stackHeights.back() += (st.stackHeights.back() + INTER_ITEM_SPACING);
-				}
-
 				auto_layout(st, cursor, item->subs[i]);
 				item->subs[i]->setParent(item);
 
 				cursor.x += item->subs[i]->size.x;
+
+				if(cursor.x >= st.maxWidth - 3 * INTER_ITEM_SPACING)
+				{
+					// move it to the next line, please.
+					cursor.x = BOX_H_PADDING;
+					cursor.y += row_height + INTER_ITEM_SPACING;
+					total_height += row_height + INTER_ITEM_SPACING;
+
+					row_height = 0;
+
+					item->subs[i]->pos = cursor;
+					cursor.x += item->subs[i]->size.x;
+				}
+
 				stackWidth = std::max(stackWidth, cursor.x - startX);
 
 				if(i + 1 < item->subs.size())
 					cursor.x += INTER_ITEM_SPACING;
+
+				row_height = std::max(row_height, item->subs[i]->size.y);
 			}
+			total_height += row_height;
 
-			auto innerStackHeight = st.stackHeights.back();
-			st.stackHeights.pop_back();
-			st.boxNesting--;
-
-			item->size = lx::vec2(BOX_H_PADDING + stackWidth + BOX_H_PADDING, innerStackHeight + 2 * BOX_V_PADDING)
+			item->size = lx::vec2(BOX_H_PADDING + stackWidth + BOX_H_PADDING, total_height + 2 * BOX_V_PADDING)
 				+ 2 * item->content_offset;
 		}
 		else
@@ -100,7 +120,6 @@ namespace ui
 			calculate_size_for_var(item);
 		}
 
-		st.stackHeights.back() = std::max(st.stackHeights.back(), item->size.y);
 		reflow_cursor(st);
 	}
 
@@ -108,7 +127,7 @@ namespace ui
 	{
 		graph->flags &= ~FLAG_FORCE_AUTO_LAYOUT;
 
-		LayoutState st = { .maxWidth = width, .stackHeights = { 0 } };
+		LayoutState st = { .maxWidth = width };
 		auto_layout(st, lx::vec2(0, 0), &graph->box);
 	}
 

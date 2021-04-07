@@ -308,7 +308,7 @@ namespace alpha
 			&& hasDoubleCut(sel[0]);
 	}
 
-	bool canInsert(Graph* graph, const char* name)
+	bool canInsert(Graph* graph, const char* name, bool use_prop_name)
 	{
 		auto& sel = ui::selection();
 		/*
@@ -321,10 +321,12 @@ namespace alpha
 			added there will be at an even depth -- so the inference rule prevents that
 			from happening entirely.
 		*/
-		return sel.count() == 1
+		auto asdf = sel.count() == 1
 			&& sel[0]->isBox
-			&& sel[0]->depth() % 2 == 0
-			&& strlen(name) > 0;
+			&& sel[0]->depth() % 2 == 0;
+
+		if(use_prop_name)   return asdf && strlen(name) > 0;
+		else                return asdf && haveIterationTarget(graph);
 	}
 
 	bool canErase(Graph* graph)
@@ -402,5 +404,7 @@ namespace alpha
 			.type   = ui::Action::EDIT_SURROUND,
 			.items  = items
 		});
+
+		ui::selection().set(p);
 	}
 }

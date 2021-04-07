@@ -12,27 +12,106 @@ using namespace alpha;
 namespace ui
 {
 	Styler flash_style(int button);
-	const char* get_prop_name();
+	char* get_prop_name();
 	size_t get_prop_capacity();
 
 	Styler disabled_style(bool disabled);
 	Styler toggle_enabled_style(bool enabled);
+	Styler disabled_style_but_dont_disable(bool disabled);
 
 	zbuf::str_view insert_prop_button(int shortcut_num, bool enabled);
+
+	static bool use_prop_name = false;
+	bool insert_with_prop_name()
+	{
+		return use_prop_name;
+	}
+
+	void inferModeChanged(Graph* graph, bool active)
+	{
+		(void) graph;
+		(void) active;
+	}
+
+	void perform_insertion(Graph* graph, Item* parent)
+	{
+		if(use_prop_name)
+		{
+			auto prop = zbuf::str_view(get_prop_name(), strlen(get_prop_name()));
+			if(prop.length() == 0)
+				return;
+
+			alpha::insertAtOddDepth(graph, parent, Item::var(prop));
+		}
+		else
+		{
+			if(!alpha::haveIterationTarget(graph))
+				return;
+
+			auto thing = graph->iteration_target->clone();
+			alpha::insertAtOddDepth(graph, parent, thing);
+		}
+	}
+
 
 	void inference_tools(Graph* graph)
 	{
 		imgui::PushID("__scope_infer");
 
 		auto geom = geometry::get();
+		auto& theme = ui::theme();
 		auto& sel = selection();
 
 		imgui::Text("inference"); imgui::Dummy(lx::vec2(4));
 		imgui::Indent();
 		{
+			{
+				auto s = disabled_style(!alpha::canInsert(graph, get_prop_name(), insert_with_prop_name()));
+				auto ss = flash_style(SB_BUTTON_INSERT);
+
+				bool insert = imgui::Button("1 \uf055 insert ");
+				imgui::Indent(14);
+				{
+					s.pop();
+					ss.pop();
+
+					{
+						auto ss = disabled_style_but_dont_disable(use_prop_name);
+						if(imgui::RadioButtonEx("iter target", !use_prop_name, 11))
+							use_prop_name = false;
+					}
+
+					{
+						auto ss = disabled_style_but_dont_disable(!use_prop_name);
+						if(imgui::RadioButtonEx("fresh: ", use_prop_name, 11))
+							use_prop_name = true;
+
+						imgui::SameLine();
+
+						auto s = Styler();
+						imgui::SetNextItemWidth(64);
+						s.push(ImGuiCol_FrameBg, theme.textFieldBg);
+						imgui::InputTextWithHint("", " prop", get_prop_name(), get_prop_capacity());
+					}
+				}
+				imgui::Unindent(14);
+
+				if(insert && sel.count() == 1)
+					perform_insertion(graph, sel[0]);
+			}
+
+
+
 			// insert anything into an odd depth
-			if(auto prop = insert_prop_button(1, alpha::canInsert(graph, get_prop_name())); !prop.empty())
-				alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(prop));
+		#if 0
+			if(auto prop = insert_prop_button(1, alpha::canInsert(graph, get_prop_name())); !prop.empty()
+				|| alpha::haveIterationTarget(graph))
+			{
+				alpha::insertAtOddDepth(graph,
+					/* parent: */ sel.empty() ? graph->iteration_target : sel[0],
+					Item::var(prop));
+			}
+		#endif
 
 			{
 				// fa-minus-circle

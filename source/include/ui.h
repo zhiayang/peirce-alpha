@@ -26,10 +26,20 @@ namespace ui
 	void quit();
 	void setTheme(Theme theme);
 
-	constexpr uint32_t TOOL_EDIT     = 0x1;
-	constexpr uint32_t TOOL_MOVE     = 0x2;
-	constexpr uint32_t TOOL_RESIZE   = 0x4;
-	constexpr uint32_t TOOL_EVALUATE = 0x8;
+	constexpr uint32_t TOOL_MOVE     = 0x1;
+	constexpr uint32_t TOOL_RESIZE   = 0x2;
+
+	constexpr int MODE_INFER    = 0;
+	constexpr int MODE_EDIT     = 1;
+	constexpr int MODE_EVALUATE = 2;
+
+	int getMode();
+	int nextMode(alpha::Graph* graph);
+
+	// essentially these act as 'callbacks' to let the code do any cleanup
+	void inferModeChanged(alpha::Graph* graph, bool active);
+	void editModeChanged(alpha::Graph* graph, bool active);
+	void evalModeChanged(alpha::Graph* graph, bool active);
 
 	bool toolEnabled(uint32_t tool);
 	void disableTool(uint32_t tool);

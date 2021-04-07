@@ -76,14 +76,17 @@ namespace ui
 			strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
 		}
 
-		bool editing = ui::toolEnabled(TOOL_EDIT) && !ui::toolEnabled(TOOL_EVALUATE);
-		if(editing) edit_bar(graph);
-		else        expr_bar(graph);
+		auto mode = ui::getMode();
+		if(mode == MODE_EDIT)
+			edit_bar(graph);
+
+		else
+			expr_bar(graph);
 
 		imgui::GetForegroundDrawList()->AddLine(
 			lx::vec2(geom.exprbar.pos.x, geom.exprbar.pos.y),
 			lx::vec2((geom.exprbar.pos + geom.exprbar.size).x, geom.exprbar.pos.y),
-			editing ? theme.boxDetached.u32() : theme.foreground.u32(),
+			mode == MODE_EDIT ? theme.boxDetached.u32() : theme.foreground.u32(),
 			/* thickness: */ 2.0
 		);
 

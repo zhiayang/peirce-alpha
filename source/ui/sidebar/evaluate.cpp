@@ -18,6 +18,8 @@ namespace alpha
 	std::vector<std::unordered_map<std::string, bool>>
 	generate_solutions(ast::Expr* expr, const std::set<std::string>& vars,
 		std::pair<size_t, size_t>& progress);
+
+	void abort_solve();
 }
 
 namespace ui
@@ -58,6 +60,17 @@ namespace ui
 		solver_state.solns.clear();
 		solver_state.did_solve = false;
 		solver_state.waiting = false;
+	}
+
+	// called when the mode changes
+	void evalModeChanged(Graph* graph, bool active)
+	{
+		if(!active)
+		{
+			ui::resetEvalExpr();
+			set_flags(graph, { });
+			alpha::abort_solve();
+		}
 	}
 
 	void rescan_variables(Graph* graph)

@@ -1167,7 +1167,8 @@ bool ImGui::CheckboxFlags(const char* label, ImU64* flags, ImU64 flags_value)
     return CheckboxFlagsT(label, flags, flags_value);
 }
 
-bool ImGui::RadioButton(const char* label, bool active)
+
+bool ImGui::RadioButtonEx(const char* label, bool active, float _radius)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
@@ -1189,7 +1190,10 @@ bool ImGui::RadioButton(const char* label, bool active)
     ImVec2 center = check_bb.GetCenter();
     center.x = IM_ROUND(center.x);
     center.y = IM_ROUND(center.y);
-    const float radius = (square_sz - 1.0f) * 0.5f;
+
+    const float radius = _radius == 0
+        ? (square_sz - 1.0f) * 0.5f
+        : _radius;
 
     bool hovered, held;
     bool pressed = ButtonBehavior(total_bb, id, &hovered, &held);
@@ -1218,6 +1222,11 @@ bool ImGui::RadioButton(const char* label, bool active)
 
     IMGUI_TEST_ENGINE_ITEM_INFO(id, label, window->DC.ItemFlags);
     return pressed;
+}
+
+bool ImGui::RadioButton(const char* label, bool active)
+{
+    return RadioButtonEx(label, active);
 }
 
 // FIXME: This would work nicely if it was a public template, e.g. 'template<T> RadioButton(const char* label, T* v, T v_button)', but I'm not sure how we would expose it..

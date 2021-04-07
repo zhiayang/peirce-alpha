@@ -13,7 +13,7 @@ using namespace alpha;
 
 namespace ui
 {
-	constexpr double TOP_LEVEL_PADDING = 20;
+	constexpr double TOP_LEVEL_PADDING = 30;
 
 	static lx::vec2 calc_origin();
 	static void render(ImDrawList* dl, Graph* graph);

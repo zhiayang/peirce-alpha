@@ -111,7 +111,7 @@ namespace alpha
 	bool canInsertDoubleCut(Graph* graph);
 	bool canRemoveDoubleCut(Graph* graph);
 
-	bool canInsert(Graph* graph, const char* name);
+	bool canInsert(Graph* graph, const char* name, bool use_prop_name);
 	bool canErase(Graph* graph);
 
 	bool canSelect(Graph* graph);

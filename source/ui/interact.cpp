@@ -23,8 +23,6 @@ namespace ui
 	static void handle_reattach(Graph* graph);
 	static void handle_shortcuts(const lx::vec2& mouse, Graph* graph);
 
-	// static void add_action(Graph*);
-
 	static bool is_char_pressed(char key);
 	static bool is_key_pressed(uint32_t scancode);
 
@@ -36,12 +34,16 @@ namespace ui
 	static lx::vec2 compute_abs_pos(Item* item);
 
 	// defined in sidebar.cpp
-	const char* get_prop_name();
+	char* get_prop_name();
 
 	// defined in sidebar/evaluate.cpp
 	void prev_solution(Graph* graph);
 	void next_solution(Graph* graph);
 	void solve_expression();
+
+	// defined in sidebar/inference.cpp
+	bool insert_with_prop_name();
+	void perform_insertion(Graph* graph, Item* parent);
 
 	template <typename Cb>
 	static void for_each_item(Item* item, Cb&& cb)
@@ -63,20 +65,13 @@ namespace ui
 
 		std::vector<Item*> clipboard;
 		uint32_t tools = TOOL_MOVE; // enable moving by default.
+
+		int mode = MODE_INFER;
 	} state;
 
 	bool toolEnabled(uint32_t tool) { return state.tools & tool; }
 	void disableTool(uint32_t tool) { state.tools &= ~tool; }
-	void enableTool(uint32_t tool)
-	{
-		state.tools |= tool;
-
-		if(tool & TOOL_EVALUATE)
-		{
-			disableTool(TOOL_EDIT);
-			disableTool(TOOL_RESIZE);
-		}
-	}
+	void enableTool(uint32_t tool)  { state.tools |= tool; }
 
 	bool toggleTool(uint32_t tool)
 	{
@@ -87,6 +82,22 @@ namespace ui
 			enableTool(tool);
 
 		return state.tools & tool;
+	}
+
+	int getMode()
+	{
+		return state.mode;
+	}
+
+	int nextMode(Graph* graph)
+	{
+		auto mode = (state.mode = (1 + state.mode) % 3);
+		inferModeChanged(graph, mode == MODE_INFER);
+		editModeChanged(graph, mode == MODE_EDIT);
+		evalModeChanged(graph, mode == MODE_EVALUATE);
+
+		state.mode = mode;
+		return state.mode;
 	}
 
 	Selection& selection()    { return state.selection; }
@@ -155,7 +166,7 @@ namespace ui
 
 		// note: handle selected things first, so that if something is deleted in this frame,
 		// the cursor doesn't lag for one frame.
-		if(state.selection.count() == 1 && toolEnabled(TOOL_EDIT))
+		if(state.selection.count() == 1 && ui::getMode() == MODE_EDIT)
 		{
 			bool was_detached = (state.selection[0]->flags & FLAG_DETACHED);
 			if(was_detached)
@@ -322,11 +333,7 @@ namespace ui
 
 		if(is_char_pressed('e'))
 		{
-			ui::toggleTool(TOOL_EDIT);
-		}
-		else if(is_char_pressed('f'))
-		{
-			ui::toggleTool(TOOL_EVALUATE);
+			ui::nextMode(graph);
 		}
 		else if(is_char_pressed('m'))
 		{
@@ -360,7 +367,7 @@ namespace ui
 			lg::log("ui", "quitting");
 			ui::quit();
 		}
-		else if(ui::toolEnabled(TOOL_EDIT))
+		else if(ui::getMode() == MODE_EDIT)
 		{
 			if(canCopyOrCut() && (is_char_pressed('x') || is_char_pressed('c')) && (!REQUIRE_MODS || has_cmd() || has_ctrl()))
 			{
@@ -411,7 +418,7 @@ namespace ui
 				if(drop == nullptr)
 					return;
 
-				auto thing = Item::var(name);
+				auto thing = Item::var((const char*) name);
 				thing->pos = pos;
 
 				alpha::insert(graph, drop, thing);
@@ -435,7 +442,7 @@ namespace ui
 				ui::flashButton(SB_BUTTON_E_SURROUND);
 			}
 		}
-		else if(ui::toolEnabled(TOOL_EVALUATE))
+		else if(ui::getMode() == MODE_EVALUATE)
 		{
 			if(is_char_pressed('1')) ui::toggleVariableState(0);
 			if(is_char_pressed('2')) ui::toggleVariableState(1);
@@ -452,15 +459,16 @@ namespace ui
 			if(is_char_pressed(',')) ui::flashButton(SB_BUTTON_V_PREV_SOLN), prev_solution(graph);
 			if(is_char_pressed('.')) ui::flashButton(SB_BUTTON_V_NEXT_SOLN), next_solution(graph);
 		}
-		else
+		else if(ui::getMode() == MODE_INFER)
 		{
 			// note that the alpha::canFooBar functions check the size of the selection,
 			// so that if we need to access sel[0], we know it exists.
 
 			auto& sel = selection();
-			if(is_char_pressed('1') && alpha::canInsert(graph, ui::get_prop_name()))
+			if(is_char_pressed('1') && alpha::canInsert(graph, ui::get_prop_name(), ui::insert_with_prop_name()))
 			{
-				alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(ui::get_prop_name()));
+				// alpha::insertAtOddDepth(graph, /* parent: */ sel[0], Item::var(ui::get_prop_name()));
+				ui::perform_insertion(graph, /* parent: */ sel[0]);
 				ui::flashButton(SB_BUTTON_INSERT);
 			}
 			else if(is_char_pressed('2') && alpha::canErase(graph))

@@ -66,8 +66,6 @@ namespace lg
 
 namespace util
 {
-	uint32_t loadImageFromFile(zbuf::str_view path);
-
 	namespace random
 	{
 		template <typename T> T get();
@@ -79,6 +77,13 @@ namespace util
 
 	struct colour
 	{
+	private:
+		float _r;
+		float _g;
+		float _b;
+		float _a;
+
+	public:
 	#if 0
 		operator lx::vec4() const { return this->vec4(); }
 		operator lx::fvec4() const { return this->fvec4(); }
@@ -95,27 +100,22 @@ namespace util
 		}
 	#endif
 
-		constexpr colour(float r, float g, float b, float a) : r(r), g(g), b(b), a(a) { }
-		constexpr colour(float r, float g, float b) : r(r), g(g), b(b), a(1.0) { }
-		constexpr colour() : r(0), g(0), b(0), a(0) { }
+		constexpr colour(float r, float g, float b, float a) : _r(r), _g(g), _b(b), _a(a) { }
+		constexpr colour(float r, float g, float b) : _r(r), _g(g), _b(b), _a(1.0) { }
+		constexpr colour() : _r(0), _g(0), _b(0), _a(0) { }
 
 		colour(colour&&) = default;
 		colour(const colour&) = default;
 		colour& operator= (colour&&) = default;
 		colour& operator= (const colour&) = default;
 
-		float r;
-		float g;
-		float b;
-		float a;
-
 		constexpr uint32_t u32() const
 		{
 			uint8_t bytes[4] = {
-				(uint8_t) (r * 255.f),
-				(uint8_t) (g * 255.f),
-				(uint8_t) (b * 255.f),
-				(uint8_t) (a * 255.f),
+				(uint8_t) (_r * 255.f),
+				(uint8_t) (_g * 255.f),
+				(uint8_t) (_b * 255.f),
+				(uint8_t) (_a * 255.f),
 			};
 
 			return (uint32_t) bytes[3] << 24
@@ -124,11 +124,21 @@ namespace util
 				| (uint32_t) bytes[0] << 0;
 		}
 
+		constexpr float r() const { return _r; }
+		constexpr float g() const { return _g; }
+		constexpr float b() const { return _b; }
+		constexpr float a() const { return _a; }
+
+		constexpr colour r(float r) const { return colour(r, _g, _b, _a); }
+		constexpr colour g(float g) const { return colour(_r, g, _b, _a); }
+		constexpr colour b(float b) const { return colour(_r, _g, b, _a); }
+		constexpr colour a(float a) const { return colour(_r, _g, _b, a); }
+
 		constexpr inline colour operator+(colour other)
 		{
 			// stop overflow to zero
-			return colour(std::max(this->r + other.r, 1.0f), std::max(this->g + other.g, 1.0f),
-				std::max(this->b + other.b, 1.0f), std::max(this->a + other.a, 1.0f));
+			return colour(std::max(this->_r + other._r, 1.0f), std::max(this->_g + other._g, 1.0f),
+				std::max(this->_b + other._b, 1.0f), std::max(this->_a + other._a, 1.0f));
 		}
 
 		constexpr static inline colour fromHexRGBA(uint32_t hex)

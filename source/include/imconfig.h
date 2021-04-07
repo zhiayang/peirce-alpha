@@ -21,7 +21,7 @@
 	lx::vec2 operator() () { return lx::vec2(x, y); }
 
 #define IM_VEC4_CLASS_EXTRA \
-	ImVec4(const util::colour& v4) : x(v4.r), y(v4.g), z(v4.b), w(v4.a) { }   \
+	ImVec4(const util::colour& v4) : x(v4.r()), y(v4.g()), z(v4.b()), w(v4.a()) { }   \
 	util::colour operator() () { return util::colour(x, y, z, w); }
 
 
