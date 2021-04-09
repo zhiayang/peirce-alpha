@@ -249,7 +249,8 @@ namespace ui
 			.items = state.selection.get()
 		});
 
-		for(auto x : state.selection)
+		auto sel = state.selection.get();
+		for(auto x : sel)
 			eraseItemFromParent(graph, x);
 
 		state.selection.clear();
@@ -405,7 +406,8 @@ namespace ui
 				});
 
 				// first, remove it from its parent
-				for(auto x : state.selection)
+				auto sel = state.selection.get();
+				for(auto x : sel)
 					eraseItemFromParent(graph, x);
 
 				// unselect it.

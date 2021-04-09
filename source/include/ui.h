@@ -136,17 +136,19 @@ namespace ui
 		alpha::Item* oldParent = 0;
 		lx::vec2 oldPos = {};
 
-		static constexpr int DELETE                 = 1;
-		static constexpr int CUT                    = 2;
-		static constexpr int PASTE                  = 3;
-		static constexpr int REPARENT               = 4;
-		static constexpr int INFER_ADD_DOUBLE_CUT   = 5;
-		static constexpr int INFER_DEL_DOUBLE_CUT   = 6;
-		static constexpr int INFER_INSERTION        = 7;
-		static constexpr int INFER_ERASURE          = 8;
-		static constexpr int INFER_ITERATION        = 9;
-		static constexpr int INFER_DEITERATION      = 10;
-		static constexpr int EDIT_SURROUND          = 11;
+		static constexpr int DELETE                     = 1;
+		static constexpr int CUT                        = 2;
+		static constexpr int PASTE                      = 3;
+		static constexpr int REPARENT                   = 4;
+		static constexpr int INFER_ADD_DOUBLE_CUT       = 5;
+		static constexpr int INFER_DEL_DOUBLE_CUT       = 6;
+		static constexpr int INFER_INSERTION            = 7;
+		static constexpr int INFER_ERASURE              = 8;
+		static constexpr int INFER_ITERATION            = 9;
+		static constexpr int INFER_DEITERATION          = 10;
+		static constexpr int EDIT_SURROUND              = 11;
+		static constexpr int INFER_DEL_EMPTY_DOUBLE_CUT = 12;
+		static constexpr int INFER_ADD_EMPTY_DOUBLE_CUT = 13;
 	};
 
 	void performAction(Action action);

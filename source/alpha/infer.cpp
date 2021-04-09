@@ -203,96 +203,160 @@ namespace alpha
 
 
 
+	static bool isEmptyDoubleCut(Item* item)
+	{
+		if(item == nullptr || !item->isBox)
+			return false;
+
+		if(item->subs.size() != 0)
+			return false;
+
+		auto p = item->parent();
+		if(!p || p->flags & FLAG_ROOT || !p->isBox)
+			return false;
+
+		return p->subs.size() == 1
+			&& p->subs[0] == item;
+	}
+
+
 	void insertDoubleCut(Graph* graph, const ui::Selection& sel, bool log_action)
 	{
-		if(sel.empty() || !sel.allSiblings())
-			return;
+		if(sel.empty())
+		{
+			// handle the empty case.
+			auto a = Item::box({ });
+			auto b = Item::box({ a });
+			a->setParent(b);
+			b->setParent(&graph->box);
 
-		auto items = sel.get();
-		for(auto item : items)
-			eraseItemFromParent(graph, item);
+			graph->box.subs.push_back(b);
 
-		auto oldp = items[0]->parent();
+			a->size = lx::vec2(20, 20);
+			ui::relayout(graph, a);
 
-		auto p = Item::box(items);      // box() sets the parent of the stuff automatically
-		auto gp = Item::box({ p });     // (which is also why we need to cache the old parent)
-		p->setParent(gp);
+			if(log_action)
+			{
+				ui::performAction(ui::Action {
+					.type   = ui::Action::INFER_ADD_EMPTY_DOUBLE_CUT,
+					.items  = { b },
+					.oldParent = &graph->box
+				});
+			}
+		}
+		else
+		{
+			if(!sel.allSiblings())
+				return;
 
-		oldp->subs.push_back(gp);
-		gp->setParent(oldp);
+			auto items = sel.get();
+			for(auto item : items)
+				eraseItemFromParent(graph, item);
 
-		ui::relayout(graph, p);
-		ui::relayout(graph, gp);
+			auto oldp = items[0]->parent();
+
+			auto p = Item::box(items);      // box() sets the parent of the stuff automatically
+			auto gp = Item::box({ p });     // (which is also why we need to cache the old parent)
+			p->setParent(gp);
+
+			oldp->subs.push_back(gp);
+			gp->setParent(oldp);
+
+			ui::relayout(graph, p);
+			ui::relayout(graph, gp);
+
+			// note that this flag is required because we'll be smart obviously and just use
+			// this function to undo a double cut removal; we don't want to add an action for that.
+			if(log_action)
+			{
+				ui::performAction(ui::Action {
+					.type   = ui::Action::INFER_ADD_DOUBLE_CUT,
+					.items  = items
+				});
+			}
+		}
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
 		sel.refresh();
-
-		// note that this flag is required because we'll be smart obviously and just use
-		// this function to undo a double cut removal; we don't want to add an action for that.
-		if(log_action)
-		{
-			ui::performAction(ui::Action {
-				.type   = ui::Action::INFER_ADD_DOUBLE_CUT,
-				.items  = items
-			});
-		}
 	}
 
 	void removeDoubleCut(Graph* graph, const ui::Selection& sel, bool log_action)
 	{
-		// we only operate on the first one! every other item selected must be a sibling.
-		if(sel.empty() || !hasDoubleCut(sel[0]) || !sel.allSiblings())
-			return;
-
-		auto item = sel[0];
-
-		// basically, get the great grandparent, and reparent the item (and all its siblings)
-		// to the great grandparent instead.
-		auto p = item->parent();
-		auto gp = p->parent();
-		auto ggp = gp->parent();
-
-		// save the positions of the parent and the grandparent...
-		auto ppos = p->pos + p->content_offset;
-		auto gppos = gp->pos + gp->content_offset;
-
-		// make a copy first. we cannot iterate over parent->subs and
-		// eraseItemFromParent at the same time...
-		auto siblings = p->subs;
-		for(auto sibling : siblings)
-			eraseItemFromParent(graph, sibling);
-
-		for(auto sibling : siblings)
+		if(sel.count() == 1 && isEmptyDoubleCut(sel[0]))
 		{
-			sibling->setParent(ggp);
-			ggp->subs.push_back(sibling);
-		}
+			auto item = sel[0];
 
-		// now we can yeet the parent and the grandparent.
-		// TODO: this leaks the heck out of the memory
-		eraseItemFromParent(graph, p);
-		eraseItemFromParent(graph, gp);
+			// we only need the grandparent.
+			auto p = item->parent();
+			auto gp = p->parent();
+
+			eraseItemFromParent(graph, p);
+
+			if(log_action)
+			{
+				// here, the list of affected items is all the siblings, not just the selected one.
+				ui::performAction(ui::Action {
+					.type   = ui::Action::INFER_DEL_EMPTY_DOUBLE_CUT,
+					.items  = { p },
+					.oldParent = gp
+				});
+			}
+		}
+		else
+		{
+			// we only operate on the first one! every other item selected must be a sibling.
+			if(sel.empty() || !hasDoubleCut(sel[0]) || !sel.allSiblings())
+				return;
+
+			auto item = sel[0];
+
+			// basically, get the great grandparent, and reparent the item (and all its siblings)
+			// to the great grandparent instead.
+			auto p = item->parent();
+			auto gp = p->parent();
+			auto ggp = gp->parent();
+
+			// save the positions of the parent and the grandparent...
+			auto ppos = p->pos + p->content_offset;
+			auto gppos = gp->pos + gp->content_offset;
+
+			// make a copy first. we cannot iterate over parent->subs and
+			// eraseItemFromParent at the same time...
+			auto siblings = p->subs;
+			for(auto sibling : siblings)
+				eraseItemFromParent(graph, sibling);
+
+			for(auto sibling : siblings)
+			{
+				sibling->setParent(ggp);
+				ggp->subs.push_back(sibling);
+			}
+
+			// now we can yeet the parent and the grandparent.
+			// TODO: this leaks the heck out of the memory
+			eraseItemFromParent(graph, p);
+			eraseItemFromParent(graph, gp);
+
+			for(auto sibling : siblings)
+			{
+				// ensure that the items don't move after removing the cut surrounding them,
+				// because that would be very annoying.
+				sibling->pos += ppos + gppos;
+				ui::relayout(graph, sibling);
+			}
+
+			if(log_action)
+			{
+				// here, the list of affected items is all the siblings, not just the selected one.
+				ui::performAction(ui::Action {
+					.type   = ui::Action::INFER_DEL_DOUBLE_CUT,
+					.items  = siblings
+				});
+			}
+		}
 
 		graph->flags |= FLAG_GRAPH_MODIFIED;
-
-		for(auto sibling : siblings)
-		{
-			// ensure that the items don't move after removing the cut surrounding them,
-			// because that would be very annoying.
-			sibling->pos += ppos + gppos;
-			ui::relayout(graph, sibling);
-		}
-
 		sel.refresh();
-
-		if(log_action)
-		{
-			// here, the list of affected items is all the siblings, not just the selected one.
-			ui::performAction(ui::Action {
-				.type   = ui::Action::INFER_DEL_DOUBLE_CUT,
-				.items  = siblings
-			});
-		}
 	}
 
 
@@ -316,19 +380,20 @@ namespace alpha
 			&& gp->subs[0] == p;
 	}
 
-
-
 	bool canInsertDoubleCut(Graph* graph)
 	{
+		// either you select something(s) and they are all siblings,
+		// or you select nothing (in which case you get an empty double cut at the root)
 		auto& sel = ui::selection();
-		return !sel.empty() && sel.allSiblings();
+		return (!sel.empty() && sel.allSiblings())
+			|| sel.empty();
 	}
 
 	bool canRemoveDoubleCut(Graph* graph)
 	{
 		auto& sel = ui::selection();
-		return (sel.count() == 1 || (sel.count() > 1 && sel.allSiblings()))
-			&& hasDoubleCut(sel[0]);
+		return ((sel.count() == 1 || (sel.count() > 1 && sel.allSiblings())) && hasDoubleCut(sel[0]))
+			|| (sel.count() == 1 && isEmptyDoubleCut(sel[0]));
 	}
 
 	bool canInsert(Graph* graph, const char* name, bool use_prop_name)

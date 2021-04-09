@@ -30,6 +30,17 @@ namespace ui
 	Styler toggle_enabled_style(bool enabled);
 	void rescan_variables(Graph* graph);
 
+	void editModeChanged(Graph* graph, bool active)
+	{
+		(void) graph;
+		(void) active;
+
+		// when we switch away, copy the thing into the thing.
+		if(!active)
+			strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
+	}
+
+
 	ast::Expr* get_cached_expr(Graph* graph)
 	{
 		if(graph->flags & FLAG_GRAPH_MODIFIED)
@@ -43,7 +54,9 @@ namespace ui
 		if(state.cachedExpr == nullptr)
 		{
 			state.cachedExpr = graph->expr();
-			strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
+
+			if(ui::getMode() != MODE_EDIT)
+				strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
 		}
 
 		return state.cachedExpr;
@@ -68,16 +81,19 @@ namespace ui
 			ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
+		auto mode = ui::getMode();
 		if(state.cachedExpr == nullptr || graph->flags & FLAG_GRAPH_MODIFIED)
 		{
 			if(state.cachedExpr)
 				delete state.cachedExpr;
 
 			state.cachedExpr = graph->expr();
-			strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
+
+			// don't change the text out from under the user
+			if(mode != MODE_EDIT)
+				strncpy(state.text_buffer, expr_to_string(state.cachedExpr).c_str(), BUFFER_SIZE);
 		}
 
-		auto mode = ui::getMode();
 		if(mode == MODE_EDIT)
 			edit_bar(graph);
 
@@ -109,9 +125,9 @@ namespace ui
 			/* flags: */ ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCharFilter,
 			/* callback: */ [](ImGuiInputTextCallbackData* callback) -> int {
 				auto& ch = callback->EventChar;
-				if(ch == '&' || ch == '*')      ch = u'∧';
-				else if(ch == '|' || ch == '+') ch = u'∨';
-				else if(ch == '~' || ch == '!') ch = u'¬';
+				if(ch == '&' || ch == '*' || ch == '^') ch = u'∧';
+				else if(ch == '|' || ch == '+')         ch = u'∨';
+				else if(ch == '~' || ch == '!')         ch = u'¬';
 
 				return 0;
 			});
@@ -251,7 +267,6 @@ namespace ui
 
 		if(!expr)
 		{
-			// TODO: open a box to tell the user
 			ui::logMessage(zpr::sprint("parse error: {}", expr.error().msg), 5);
 			lg::warn("expr", "parse error: {}", expr.error().msg);
 		}

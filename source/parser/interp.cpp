@@ -30,7 +30,11 @@ namespace ast
 			return new Lit(!v);
 		}
 
-		return ee;
+		// check if the inside is a not -- eliminate the double negation
+		if(auto enot = dynamic_cast<Not*>(ee); enot)
+			return enot->e;
+
+		return new Not(ee);
 	}
 
 	Expr* And::evaluate(const std::unordered_map<std::string, bool>& syms) const

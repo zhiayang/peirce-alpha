@@ -21,12 +21,6 @@ namespace ui
 	bool is_mouse_in_bounds();
 	zbuf::str_view insert_prop_button(int shortcut_num, bool enabled);
 
-	void editModeChanged(Graph* graph, bool active)
-	{
-		(void) graph;
-		(void) active;
-	}
-
 	void editing_tools(Graph* graph)
 	{
 		imgui::PushID("__scope_editing");

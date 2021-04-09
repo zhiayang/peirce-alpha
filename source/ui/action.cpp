@@ -131,6 +131,16 @@ namespace ui
 				eraseItemFromParent(graph, parent);
 			} break;
 
+			case Action::INFER_ADD_EMPTY_DOUBLE_CUT: {
+				alpha::eraseItemFromParent(graph, action.items[0]);
+			} break;
+
+			case Action::INFER_DEL_EMPTY_DOUBLE_CUT: {
+				action.oldParent->subs.push_back(action.items[0]);
+				action.items[0]->setParent(action.oldParent);
+				ui::relayout(graph, action.items[0]);
+			} break;
+
 			default:
 				lg::error("ui", "unknown action type '{}'", action.type);
 				break;
@@ -222,6 +232,16 @@ namespace ui
 				sel.set(action.items);
 				alpha::surround(graph, sel);
 				sel.clear();
+			} break;
+
+			case Action::INFER_ADD_EMPTY_DOUBLE_CUT: {
+				action.oldParent->subs.push_back(action.items[0]);
+				action.items[0]->setParent(action.oldParent);
+				ui::relayout(graph, action.items[0]);
+			} break;
+
+			case Action::INFER_DEL_EMPTY_DOUBLE_CUT: {
+				alpha::eraseItemFromParent(graph, action.items[0]);
 			} break;
 
 			default:

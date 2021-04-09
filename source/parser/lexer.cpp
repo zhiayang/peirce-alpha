@@ -112,6 +112,7 @@ namespace parser
 				case '+': ret = Token(TT::Or, loc, src.take(1));            break;
 				case '|': ret = Token(TT::Or, loc, src.take(1));            break;
 				case '&': ret = Token(TT::And, loc, src.take(1));           break;
+				case '^': ret = Token(TT::And, loc, src.take(1));           break; // asdf
 				case '*': ret = Token(TT::And, loc, src.take(1));           break;
 				case '!': ret = Token(TT::Not, loc, src.take(1));           break;
 				case '~': ret = Token(TT::Not, loc, src.take(1));           break;
