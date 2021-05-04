@@ -21,7 +21,7 @@ namespace ui
 	struct Theme;
 
 	void init(zbuf::str_view title);
-	void setup(double uiscale, double fontsize, Theme theme);
+	void setup(const char* program_path, double uiscale, double fontsize, Theme theme);
 	void stop();
 	void quit();
 	void setTheme(Theme theme);

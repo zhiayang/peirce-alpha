@@ -4,8 +4,8 @@
 
 #include <chrono>
 #include <numeric>
+#include <filesystem>   // sorry
 
-#include <GL/gl3w.h>
 #include <SDL2/SDL.h>
 
 #include "ui.h"
@@ -13,6 +13,13 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl.h"
 #include "imgui/imgui_impl_opengl3.h"
+
+#if defined(__EMSCRIPTEN__)
+	#include <emscripten.h>
+	#include <SDL_opengles2.h>
+#else
+	#include <GL/gl3w.h>
+#endif
 
 namespace ui
 {
@@ -48,6 +55,12 @@ namespace ui
 	#endif
 	}
 
+	void foozle(SDL_Window** window, SDL_GLContext* context)
+	{
+		*window = uiState.sdlWindow;
+		*context = uiState.glContext;
+	}
+
 
 	void init(zbuf::str_view title)
 	{
@@ -55,14 +68,25 @@ namespace ui
 		if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
 			lg::fatal("ui", "couldn't initialise SDL: {}", SDL_GetError());
 
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // required on osx
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+		#if defined(__EMSCRIPTEN__)
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		#else
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // required on osx
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+		#endif
 
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+		SDL_DisplayMode current { };
+		SDL_GetCurrentDisplayMode(0, &current);
+		(void) current;
 
 		// glorious 16:10
 		constexpr int MIN_WIDTH = 920;
@@ -79,17 +103,26 @@ namespace ui
 		if((uiState.glContext = SDL_GL_CreateContext(uiState.sdlWindow)) == nullptr)
 			lg::fatal("ui", "couldn't create OpenGL context: {}", SDL_GetError());
 
-		SDL_GL_MakeCurrent(uiState.sdlWindow, uiState.glContext);
 		SDL_GL_SetSwapInterval(1);
 
-		// setup the opengl function loader
-		if(bool err = gl3wInit(); err != 0)
-			lg::fatal("ui", "couldn't initialise gl3w");
+		#if !defined(__EMSCRIPTEN__)
+			// setup the opengl function loader
+			if(bool err = gl3wInit(); err != 0)
+				lg::fatal("ui", "couldn't initialise gl3w");
+		#endif
 
 		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO();
+		io.IniFilename = NULL;
 
+		ImGui::StyleColorsDark();
 		ImGui_ImplSDL2_InitForOpenGL(uiState.sdlWindow, uiState.glContext);
-		ImGui_ImplOpenGL3_Init("#version 330 core");
+
+		#if defined(__EMSCRIPTEN__)
+			ImGui_ImplOpenGL3_Init("#version 100");
+		#else
+			ImGui_ImplOpenGL3_Init("#version 330 core");
+		#endif
 
 		uiState.resizeCursorNWSE = create_sdl_system_cursor(SDL_SYSTEM_CURSOR_SIZENWSE);
 		uiState.resizeCursorNESW = create_sdl_system_cursor(SDL_SYSTEM_CURSOR_SIZENESW);
@@ -97,7 +130,13 @@ namespace ui
 		SDL_SetWindowMinimumSize(uiState.sdlWindow, MIN_WIDTH, MIN_HEIGHT);
 	}
 
-	void setup(double uiscale, double fontsize, Theme theme)
+	#if defined(__EMSCRIPTEN__)
+		#define ROOT_ASSETS "/assets"
+	#else
+		#define ROOT_ASSETS "assets"
+	#endif
+
+	void setup(const char* program_path, double uiscale, double fontsize, Theme theme)
 	{
 		auto& io = ImGui::GetIO();
 		io.IniFilename = 0;
@@ -109,26 +148,41 @@ namespace ui
 			config.OversampleH = 4;
 		}
 
-		uiState.mainFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", fontsize, &config, 0);
+		namespace fs = std::filesystem;
+		#if defined(__EMSCRIPTEN__)
+			auto ASSET_ROOT = fs::path("/assets");
+		#else
+			auto ASSET_ROOT = fs::path(program_path).parent_path() / "assets";
+		#endif
+
+		lg::log("ui", "asset root = {}", ASSET_ROOT.string());
+
+
+		uiState.mainFont = io.Fonts->AddFontFromFileTTF((ASSET_ROOT / "menlo.ttf").string().c_str(),
+			fontsize, &config, 0);
 
 		const ImWchar symbols_ranges[] = { 0x2200, 0x22ff, 0 }; // mathematical symbols
 		const ImWchar icons_ranges[]   = { 0xf000, 0xf8ff, 0 }; // private use area
 
 		config.MergeMode = true;
-
-		io.Fonts->AddFontFromFileTTF("assets/dejavu-mono.ttf", fontsize - 2, &config, symbols_ranges);
+		io.Fonts->AddFontFromFileTTF((ASSET_ROOT / "dejavu-mono.ttf").string().c_str(),
+			fontsize - 2, &config, symbols_ranges);
 
 		auto iconConf = config;
 		iconConf.MergeMode = true;
 		iconConf.GlyphMinAdvanceX = 1.5 * fontsize;
 		iconConf.GlyphMaxAdvanceX = 1.5 * fontsize;
 
-		io.Fonts->AddFontFromFileTTF("assets/font-awesome-pro-regular.otf", fontsize - 2, &iconConf, icons_ranges);
+		io.Fonts->AddFontFromFileTTF((ASSET_ROOT / "font-awesome-pro-regular.otf").string().c_str(),
+			fontsize - 2, &iconConf, icons_ranges);
 
-		uiState.smallFont = io.Fonts->AddFontFromFileTTF("assets/menlo.ttf", 12, &config, 0);
+		uiState.smallFont = io.Fonts->AddFontFromFileTTF((ASSET_ROOT / "menlo.ttf").string().c_str(),
+			12, &config, 0);
+
 		iconConf.MergeMode = false;
 
-		uiState.bigIconFont = io.Fonts->AddFontFromFileTTF("assets/font-awesome-pro-regular.otf",
+		uiState.bigIconFont = io.Fonts->AddFontFromFileTTF(
+			(ASSET_ROOT / "font-awesome-pro-regular.otf").string().c_str(),
 			fontsize * 1.2, &iconConf, icons_ranges);
 
 		io.Fonts->Build();
@@ -240,9 +294,10 @@ namespace ui
 	#endif
 
 		ImGui::Render();
+		SDL_GL_MakeCurrent(uiState.sdlWindow, uiState.glContext);
 		glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);
 
-		const auto& bg = uiState.theme.background;
+		auto bg = uiState.theme.background;
 		glClearColor(bg.r(), bg.g(), bg.b(), bg.a());
 
 		glClear(GL_COLOR_BUFFER_BIT);

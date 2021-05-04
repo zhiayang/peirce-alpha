@@ -31,6 +31,8 @@ endif
 LIBS            = sdl2
 FRAMEWORKS      =
 
+LIBS_CFLAGS     := $(shell pkg-config --cflags $(LIBS))
+
 IMGUI_SRCS      = $(shell find external/imgui -iname "*.cpp" -print)
 IMGUI_OBJS      = $(IMGUI_SRCS:.cpp=.cpp.o)
 
@@ -47,6 +49,31 @@ DEFINES         := -DIMGUI_IMPL_OPENGL_LOADER_GL3W=1
 INCLUDES        := -Isource/include -Iexternal
 
 OUTPUT_BIN      := build/palpha
+
+ifeq ("$(USE_EMSCRIPTEN)", "1")
+	CC          := emcc
+	CXX         := em++
+
+	OBJCSRC     :=
+	OBJCOBJ     :=
+
+	EMS_FLAGS   := -s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s DISABLE_EXCEPTION_CATCHING=1 -s NO_EXIT_RUNTIME=0
+	EMS_FLAGS   += -s WARN_UNALIGNED=1
+
+	LIBS_CFLAGS := $(EMS_FLAGS)
+	SDL_LINK    := $(EMS_FLAGS) --shell-file web-shell.html --no-heap-copy --preload-file build/assets@/assets
+
+	DEFINES     :=
+	GL3W_SRCS   :=
+	GL3W_OBJS   :=
+
+	OUTPUT_BIN  := build/index.html
+endif
+
+
+
+
+
 
 .PHONY: all clean build output_headers
 .PRECIOUS: $(PRECOMP_GCH)
@@ -66,7 +93,7 @@ $(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS) $(OBJCOBJ)
 %.cpp.o: %.cpp Makefile $(PRECOMP_GCH)
 	@echo "  $(notdir $<)"
 	@$(CXX) $(CXXFLAGS) $(WARNINGS) $(INCLUDES) $(DEFINES) -include source/include/precompile.h -MMD -MP -c -o $@ $< \
-		$(shell pkg-config --cflags $(LIBS))
+		$(LIBS_CFLAGS)
 
 %.c.o: %.c Makefile
 	@echo "  $(notdir $<)"
@@ -81,8 +108,10 @@ $(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS) $(OBJCOBJ)
 	@$(CXX) $(CXXFLAGS) $(WARNINGS) $(INCLUDES) -x c++-header -o $@ $<
 
 clean:
-	-@find source -iname "*.cpp.d" | xargs rm
-	-@find source -iname "*.cpp.o" | xargs rm
+	-@find source -iname "*.d" | xargs rm
+	-@find source -iname "*.o" | xargs rm
+	-@find external -iname "*.o" | xargs rm
+	-@find external -iname "*.d" | xargs rm
 	-@rm $(PRECOMP_GCH)
 
 -include $(CXXDEPS)

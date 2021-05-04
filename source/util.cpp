@@ -13,7 +13,12 @@
 namespace lg
 {
 	constexpr bool ENABLE_DEBUG = false;
+
+#if defined(__EMSCRIPTEN__)
+	constexpr bool USE_COLOURS  = false;
+#else
 	constexpr bool USE_COLOURS  = true;
+#endif
 
 	constexpr const char* DBG    = (USE_COLOURS ? "\x1b[37m" : "");
 	constexpr const char* LOG    = (USE_COLOURS ? "\x1b[30;1m" : "");

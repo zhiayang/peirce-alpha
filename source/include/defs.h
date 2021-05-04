@@ -13,6 +13,10 @@
 
 #include "lx.h"
 
+#if defined(__EMSCRIPTEN__)
+	#include <emscripten.h>
+#endif
+
 namespace lg
 {
 	bool isDebugEnabled();
