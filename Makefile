@@ -67,7 +67,7 @@ ifeq ("$(USE_EMSCRIPTEN)", "1")
 	GL3W_SRCS   :=
 	GL3W_OBJS   :=
 
-	OUTPUT_BIN  := build/index.html
+	OUTPUT_BIN  := docs/index.html
 endif
 
 
