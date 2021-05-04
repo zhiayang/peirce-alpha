@@ -10,7 +10,7 @@
 
 !build/
 
-build/*
+build/palpha
 !build/assets/
 
 *.gch
