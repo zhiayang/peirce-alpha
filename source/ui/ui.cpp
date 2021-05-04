@@ -57,8 +57,8 @@ namespace ui
 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // required on osx
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -76,7 +76,9 @@ namespace ui
 		if(uiState.sdlWindow == nullptr)
 			lg::fatal("ui", "couldn't create SDL window: {}", SDL_GetError());
 
-		uiState.glContext = SDL_GL_CreateContext(uiState.sdlWindow);
+		if((uiState.glContext = SDL_GL_CreateContext(uiState.sdlWindow)) == nullptr)
+			lg::fatal("ui", "couldn't create OpenGL context: {}", SDL_GetError());
+
 		SDL_GL_MakeCurrent(uiState.sdlWindow, uiState.glContext);
 		SDL_GL_SetSwapInterval(1);
 

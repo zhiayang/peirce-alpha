@@ -25,7 +25,7 @@ else
 	OBJCSRC     =
 	OBJCOBJ     =
 
-	SDL_LINK    = $(shell pkg-config --libs sdl2) -ldl -lGL
+	SDL_LINK    = $(shell pkg-config --libs sdl2) -ldl -lGL -pthread
 endif
 
 LIBS            = sdl2
@@ -83,7 +83,6 @@ $(OUTPUT_BIN): $(CXXOBJ) $(IMGUI_OBJS) $(GL3W_OBJS) $(UTF8PROC_OBJS) $(OBJCOBJ)
 clean:
 	-@find source -iname "*.cpp.d" | xargs rm
 	-@find source -iname "*.cpp.o" | xargs rm
-	-@find build -iname "*.a" | xargs rm
 	-@rm $(PRECOMP_GCH)
 
 -include $(CXXDEPS)

@@ -2,7 +2,8 @@
 // Copyright (c) 2021, zhiayang
 // Licensed under the Apache License Version 2.0.
 
-#include <math.h>
+#include <cmath>
+#include <algorithm>
 
 #include "ui.h"
 #include "alpha.h"

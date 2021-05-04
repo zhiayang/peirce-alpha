@@ -17,7 +17,7 @@ namespace ui
 
 	static constexpr size_t BUFFER_SIZE = 1024;
 	static struct {
-		char text_buffer[BUFFER_SIZE];
+		char text_buffer[BUFFER_SIZE + 1];
 
 		ast::Expr* cachedExpr = 0;
 	} state;

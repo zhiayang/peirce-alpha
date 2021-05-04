@@ -5,6 +5,7 @@
 *.dll
 *.cpp.d
 *.c.d
+*.d
 *.log
 
 !build/
