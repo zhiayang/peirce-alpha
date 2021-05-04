@@ -1,6 +1,6 @@
 # peirce's alpha system (graphical proof assistant)
 
-[Online Demo](https://zhiayang.github.io/peirce-alpha)
+[Online Demo](https://zhiayang.github.io/peirce-alpha/)
 
 Not a very catchy name I know. At least it looks nice:
 <div style="text-align: center">
